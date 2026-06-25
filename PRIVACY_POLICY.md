@@ -1,11 +1,12 @@
 # Privacy Policy - DeepSeek Chrome Translator
 
-Effective date: 2026-05-27
+Effective date: 2026-06-25
 
 ## Overview
 
-DeepSeek Chrome Translator translates user-selected text through third-party language APIs.
-This extension is designed to minimize data collection and keep user settings local.
+DeepSeek Chrome Translator translates user-selected text through third-party language APIs,
+helps users save local flashcards, and opens pronunciation resources when requested.
+This extension is designed to minimize data processing and keep user settings local.
 
 ## Data We Process
 
@@ -14,6 +15,9 @@ The extension may process the following data:
 - User-selected text from web pages (for translation or pronunciation features)
 - User-provided settings, including API key and language preferences
 - Flashcards saved by the user
+
+The extension does not collect health information, financial information, location,
+web browsing history, keystroke logs, mouse movement, or scroll activity.
 
 ## Where Data Is Stored
 
@@ -24,10 +28,13 @@ We do not run a backend server for this extension and do not store your data on 
 
 ## Third-Party Services
 
-When translation or related features are used, selected text may be sent to:
+When translation, dictionary, or pronunciation features are requested by the user,
+selected text or searched words may be sent to or opened with:
 
 - `https://api.deepseek.com/`
 - `https://api.dictionaryapi.dev/` (when applicable)
+- `https://youglish.com/` (when the user opens YouGlish)
+- `https://forvo.com/` (when the user opens Forvo)
 
 Use of those services is governed by their own privacy policies and terms.
 
@@ -38,8 +45,10 @@ The key is used only to authenticate requests you trigger.
 
 ## Data Sharing
 
-We do not sell personal data.
+We do not sell user data.
+We do not transfer user data for purposes unrelated to the extension's single purpose.
 We only transmit data necessary to provide requested extension features.
+We do not use user data to determine creditworthiness or for lending purposes.
 
 ## Security
 
