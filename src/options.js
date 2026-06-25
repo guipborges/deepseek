@@ -1,28 +1,36 @@
 const SETTINGS_KEY = "deepseekTranslatorSettings";
 
-const apiKeyInput = document.getElementById("apiKey");
+const backendApiUrlInput = document.getElementById("backendApiUrl");
+const checkoutUrlInput = document.getElementById("checkoutUrl");
+const accountStatusText = document.getElementById("accountStatusText");
+const accountUsageText = document.getElementById("accountUsageText");
+const logoutBtn = document.getElementById("logoutBtn");
 const targetLanguageInput = document.getElementById("targetLanguage");
-const modelInput = document.getElementById("model");
 const popupWidthInput = document.getElementById("popupWidth");
 const popupHeightInput = document.getElementById("popupHeight");
 const themeModeSelect = document.getElementById("themeMode");
 const appLanguageSelect = document.getElementById("appLanguage");
 const openOnTClickInput = document.getElementById("openOnTClick");
 const openOnDoubleClickInput = document.getElementById("openOnDoubleClick");
-const toggleApiKeyEditBtn = document.getElementById("toggleApiKeyEditBtn");
 const saveBtn = document.getElementById("saveBtn");
 const statusEl = document.getElementById("status");
 
 let currentUiLanguage = "pt-BR";
-let isApiKeyEditEnabled = false;
 
 const UI_TEXTS = {
   pt: {
     pageTitle: "Configuracoes - DeepSeek Translator",
     title: "Configuracoes",
-    apiKey: "API Key DeepSeek",
+    backendApiUrl: "URL da API",
+    checkoutUrl: "Link de checkout",
+    accountDisconnected: "Conta nao conectada",
+    accountDisconnectedHelp: "Entre pelo popup para ativar o trial.",
+    accountTrial: "Trial ativo",
+    accountPro: "Plano anual ativo",
+    accountExpired: "Trial encerrado",
+    accountUsage: "{used}/{limit} tokens este mes",
+    logout: "Sair",
     targetLanguage: "Idioma de destino",
-    model: "Modelo",
     popupWidth: "Largura do popup (px)",
     popupHeight: "Altura do popup (px)",
     theme: "Tema",
@@ -32,19 +40,25 @@ const UI_TEXTS = {
     popupOpenTriggerLegend: "Abertura do popup principal",
     openOnTClick: "Abre popup ao clicar no T",
     openOnDoubleClick: "Abre popup so com duplo clique na palavra",
-    unlockApiKeyEdit: "Liberar edicao da API Key",
-    lockApiKeyEdit: "Bloquear edicao da API Key",
     save: "Salvar",
     saved: "Configuracoes salvas.",
+    signedOut: "Sessao encerrada.",
     saveFailed: "Falha ao salvar: ",
     loadFailed: "Falha ao carregar: "
   },
   en: {
     pageTitle: "Settings - DeepSeek Translator",
     title: "Settings",
-    apiKey: "DeepSeek API Key",
+    backendApiUrl: "API URL",
+    checkoutUrl: "Checkout link",
+    accountDisconnected: "Account not connected",
+    accountDisconnectedHelp: "Sign in from the popup to start the trial.",
+    accountTrial: "Trial active",
+    accountPro: "Annual plan active",
+    accountExpired: "Trial ended",
+    accountUsage: "{used}/{limit} tokens this month",
+    logout: "Sign out",
     targetLanguage: "Target language",
-    model: "Model",
     popupWidth: "Popup width (px)",
     popupHeight: "Popup height (px)",
     theme: "Theme",
@@ -54,19 +68,25 @@ const UI_TEXTS = {
     popupOpenTriggerLegend: "Main popup opening",
     openOnTClick: "Open popup when clicking the T button",
     openOnDoubleClick: "Open popup only on word double-click",
-    unlockApiKeyEdit: "Unlock API key editing",
-    lockApiKeyEdit: "Lock API key editing",
     save: "Save",
     saved: "Settings saved.",
+    signedOut: "Signed out.",
     saveFailed: "Failed to save: ",
     loadFailed: "Failed to load: "
   },
   de: {
     pageTitle: "Einstellungen - DeepSeek Translator",
     title: "Einstellungen",
-    apiKey: "DeepSeek API-Schluessel",
+    backendApiUrl: "API-URL",
+    checkoutUrl: "Checkout-Link",
+    accountDisconnected: "Konto nicht verbunden",
+    accountDisconnectedHelp: "Melden Sie sich im Popup an, um die Testphase zu starten.",
+    accountTrial: "Testphase aktiv",
+    accountPro: "Jahresplan aktiv",
+    accountExpired: "Testphase beendet",
+    accountUsage: "{used}/{limit} Tokens diesen Monat",
+    logout: "Abmelden",
     targetLanguage: "Zielsprache",
-    model: "Modell",
     popupWidth: "Popup-Breite (px)",
     popupHeight: "Popup-Hoehe (px)",
     theme: "Design",
@@ -76,10 +96,9 @@ const UI_TEXTS = {
     popupOpenTriggerLegend: "Haupt-Popup oeffnen",
     openOnTClick: "Popup bei Klick auf T oeffnen",
     openOnDoubleClick: "Popup nur bei Doppelklick auf Wort oeffnen",
-    unlockApiKeyEdit: "Bearbeitung des API-Schluessels freigeben",
-    lockApiKeyEdit: "Bearbeitung des API-Schluessels sperren",
     save: "Speichern",
     saved: "Einstellungen gespeichert.",
+    signedOut: "Abgemeldet.",
     saveFailed: "Speichern fehlgeschlagen: ",
     loadFailed: "Laden fehlgeschlagen: "
   }
@@ -87,12 +106,8 @@ const UI_TEXTS = {
 
 function getUiLanguageCode(language) {
   const code = (language || "pt-BR").toLowerCase();
-  if (code.startsWith("pt")) {
-    return "pt";
-  }
-  if (code.startsWith("de")) {
-    return "de";
-  }
+  if (code.startsWith("pt")) return "pt";
+  if (code.startsWith("de")) return "de";
   return "en";
 }
 
@@ -101,84 +116,53 @@ function t(key) {
   return ui[key] || UI_TEXTS.pt[key] || key;
 }
 
+function updateTextNodeForLabel(label, text) {
+  const textNodes = Array.from(label.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE);
+  for (const node of textNodes) {
+    label.removeChild(node);
+  }
+  label.appendChild(document.createTextNode(` ${text}`));
+}
+
 function updateOptionsLabels() {
   document.documentElement.lang = currentUiLanguage;
   document.title = t("pageTitle");
 
   const titleEl = document.querySelector("h1");
-  if (titleEl) {
-    titleEl.textContent = t("title");
-  }
+  if (titleEl) titleEl.textContent = t("title");
 
-  const apiLabel = document.querySelector('label[for="apiKey"]');
-  const targetLabel = document.querySelector('label[for="targetLanguage"]');
-  const modelLabel = document.querySelector('label[for="model"]');
-  const widthLabel = document.querySelector('label[for="popupWidth"]');
-  const heightLabel = document.querySelector('label[for="popupHeight"]');
-  const themeLabel = document.querySelector('label[for="themeMode"]');
-  const appLangLabel = document.querySelector('label[for="appLanguage"]');
+  const labels = {
+    backendApiUrl: document.querySelector('label[for="backendApiUrl"]'),
+    checkoutUrl: document.querySelector('label[for="checkoutUrl"]'),
+    targetLanguage: document.querySelector('label[for="targetLanguage"]'),
+    popupWidth: document.querySelector('label[for="popupWidth"]'),
+    popupHeight: document.querySelector('label[for="popupHeight"]'),
+    themeMode: document.querySelector('label[for="themeMode"]'),
+    appLanguage: document.querySelector('label[for="appLanguage"]')
+  };
+
+  if (labels.backendApiUrl) labels.backendApiUrl.textContent = t("backendApiUrl");
+  if (labels.checkoutUrl) labels.checkoutUrl.textContent = t("checkoutUrl");
+  if (labels.targetLanguage) labels.targetLanguage.textContent = t("targetLanguage");
+  if (labels.popupWidth) labels.popupWidth.textContent = t("popupWidth");
+  if (labels.popupHeight) labels.popupHeight.textContent = t("popupHeight");
+  if (labels.themeMode) labels.themeMode.textContent = t("theme");
+  if (labels.appLanguage) labels.appLanguage.textContent = t("appLanguage");
+
   const popupOpenTriggerLegend = document.getElementById("popupOpenTriggerLegend");
   const openOnTClickLabel = document.querySelector('label[for="openOnTClick"]');
   const openOnDoubleClickLabel = document.querySelector('label[for="openOnDoubleClick"]');
-
-  if (apiLabel) apiLabel.textContent = t("apiKey");
-  if (targetLabel) targetLabel.textContent = t("targetLanguage");
-  if (modelLabel) modelLabel.textContent = t("model");
-  if (widthLabel) widthLabel.textContent = t("popupWidth");
-  if (heightLabel) heightLabel.textContent = t("popupHeight");
-  if (themeLabel) themeLabel.textContent = t("theme");
-  if (appLangLabel) appLangLabel.textContent = t("appLanguage");
   if (popupOpenTriggerLegend) popupOpenTriggerLegend.textContent = t("popupOpenTriggerLegend");
-  if (openOnTClickLabel) {
-    const textNodes = Array.from(openOnTClickLabel.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE);
-    for (const node of textNodes) {
-      openOnTClickLabel.removeChild(node);
-    }
-    openOnTClickLabel.appendChild(document.createTextNode(` ${t("openOnTClick")}`));
-  }
-  if (openOnDoubleClickLabel) {
-    const textNodes = Array.from(openOnDoubleClickLabel.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE);
-    for (const node of textNodes) {
-      openOnDoubleClickLabel.removeChild(node);
-    }
-    openOnDoubleClickLabel.appendChild(document.createTextNode(` ${t("openOnDoubleClick")}`));
-  }
+  if (openOnTClickLabel) updateTextNodeForLabel(openOnTClickLabel, t("openOnTClick"));
+  if (openOnDoubleClickLabel) updateTextNodeForLabel(openOnDoubleClickLabel, t("openOnDoubleClick"));
 
   if (themeModeSelect.options.length >= 2) {
     themeModeSelect.options[0].textContent = t("themeLight");
     themeModeSelect.options[1].textContent = t("themeDark");
   }
 
-  updateApiKeyEditUi();
-
+  logoutBtn.textContent = t("logout");
   saveBtn.textContent = t("save");
-}
-
-function updateApiKeyEditUi() {
-  if (!apiKeyInput || !toggleApiKeyEditBtn) {
-    return;
-  }
-
-  apiKeyInput.readOnly = !isApiKeyEditEnabled;
-  toggleApiKeyEditBtn.setAttribute("aria-pressed", isApiKeyEditEnabled ? "true" : "false");
-
-  const titleKey = isApiKeyEditEnabled ? "lockApiKeyEdit" : "unlockApiKeyEdit";
-  const title = t(titleKey);
-  toggleApiKeyEditBtn.title = title;
-  toggleApiKeyEditBtn.setAttribute("aria-label", title);
-}
-
-function toggleApiKeyEdit() {
-  isApiKeyEditEnabled = !isApiKeyEditEnabled;
-  updateApiKeyEditUi();
-
-  if (isApiKeyEditEnabled) {
-    apiKeyInput.focus();
-    const len = apiKeyInput.value.length;
-    apiKeyInput.setSelectionRange(len, len);
-  } else {
-    apiKeyInput.blur();
-  }
 }
 
 function applyTheme(themeMode) {
@@ -205,48 +189,70 @@ function storageSet(value) {
 
 function clampNumber(value, min, max, fallback) {
   const parsed = Number(value);
-  if (Number.isNaN(parsed)) {
-    return fallback;
-  }
-
+  if (Number.isNaN(parsed)) return fallback;
   return Math.max(min, Math.min(max, parsed));
 }
 
 function resolvePopupOpenTrigger(settings) {
   const explicitTrigger = (settings?.popupOpenTrigger || "").trim();
-  if (explicitTrigger === "t-click" || explicitTrigger === "double-click") {
-    return explicitTrigger;
-  }
-
+  if (explicitTrigger === "t-click" || explicitTrigger === "double-click") return explicitTrigger;
   return settings?.openMainWindowOnDoubleClick ? "double-click" : "t-click";
 }
 
-async function loadSettings() {
-  const data = await storageGet(SETTINGS_KEY);
+function getPlanLabel(plan) {
+  if (plan === "pro") return t("accountPro");
+  if (plan === "expired") return t("accountExpired");
+  return t("accountTrial");
+}
 
-  if (!data) {
+async function refreshAccountBox() {
+  const session = await getCurrentSession();
+  if (!session?.accessToken) {
+    accountStatusText.textContent = t("accountDisconnected");
+    accountUsageText.textContent = t("accountDisconnectedHelp");
+    logoutBtn.disabled = true;
     return;
   }
 
-  apiKeyInput.value = data.apiKey || "";
+  logoutBtn.disabled = false;
+  try {
+    const account = await getBackendAccount();
+    const user = account.user || {};
+    const used = Number(user?.usage?.monthlyTokens || 0);
+    const limit = Number(user?.limits?.monthlyTokens || 0) || "-";
+    accountStatusText.textContent = `${getPlanLabel(user.plan)} - ${user.email || session.email || ""}`.trim();
+    accountUsageText.textContent = t("accountUsage").replace("{used}", String(used)).replace("{limit}", String(limit));
+  } catch (_error) {
+    accountStatusText.textContent = t("accountDisconnected");
+    accountUsageText.textContent = t("accountDisconnectedHelp");
+  }
+}
+
+async function loadSettings() {
+  const data = (await storageGet(SETTINGS_KEY)) || {};
+  const backendConfig = await getBackendConfig();
+
+  // Backend URLs are now hardcoded and read-only
+  backendApiUrlInput.value = backendConfig.apiBaseUrl || "";
+  backendApiUrlInput.disabled = true;
+  checkoutUrlInput.value = backendConfig.checkoutUrl || "";
+  checkoutUrlInput.disabled = true;
+  
   targetLanguageInput.value = data.targetLanguage || "pt-BR";
-  modelInput.value = data.model || "deepseek-chat";
   popupWidthInput.value = data.popupWidth || 340;
   popupHeightInput.value = data.popupHeight || 520;
   themeModeSelect.value = data.themeMode || "light";
   appLanguageSelect.value = data.appLanguage || "pt-BR";
-  if (appLanguageSelect.value !== (data.appLanguage || "pt-BR")) {
-    appLanguageSelect.value = "pt-BR";
-  }
-  if (themeModeSelect.value !== (data.themeMode || "light")) {
-    themeModeSelect.value = "light";
-  }
+  if (appLanguageSelect.value !== (data.appLanguage || "pt-BR")) appLanguageSelect.value = "pt-BR";
+  if (themeModeSelect.value !== (data.themeMode || "light")) themeModeSelect.value = "light";
+
   const popupOpenTrigger = resolvePopupOpenTrigger(data);
   openOnTClickInput.checked = popupOpenTrigger === "t-click";
   openOnDoubleClickInput.checked = popupOpenTrigger === "double-click";
   currentUiLanguage = appLanguageSelect.value;
   updateOptionsLabels();
   applyTheme(themeModeSelect.value);
+  await refreshAccountBox();
 }
 
 async function saveSettings() {
@@ -255,10 +261,8 @@ async function saveSettings() {
 
   const payload = {
     ...current,
-    apiKey: apiKeyInput.value.trim(),
     sourceLanguage: current.sourceLanguage || "auto",
     targetLanguage: targetLanguageInput.value.trim() || "pt-BR",
-    model: modelInput.value.trim() || "deepseek-chat",
     popupWidth: clampNumber(popupWidthInput.value, 280, 780, 340),
     popupHeight: clampNumber(popupHeightInput.value, 260, 780, 520),
     themeMode: themeModeSelect.value || "light",
@@ -267,6 +271,10 @@ async function saveSettings() {
     openMainWindowOnDoubleClick: popupOpenTrigger === "double-click"
   };
 
+  delete payload.apiKey;
+  delete payload.model;
+
+  // Backend URLs are hardcoded and not editable
   await storageSet(payload);
   currentUiLanguage = payload.appLanguage;
   updateOptionsLabels();
@@ -279,6 +287,13 @@ saveBtn.addEventListener("click", () => {
   });
 });
 
+logoutBtn.addEventListener("click", () => {
+  signOut()
+    .then(refreshAccountBox)
+    .then(() => setStatus(t("signedOut")))
+    .catch((error) => setStatus(t("saveFailed") + error.message, true));
+});
+
 themeModeSelect.addEventListener("change", () => {
   applyTheme(themeModeSelect.value);
 });
@@ -286,12 +301,10 @@ themeModeSelect.addEventListener("change", () => {
 appLanguageSelect.addEventListener("change", () => {
   currentUiLanguage = appLanguageSelect.value || "pt-BR";
   updateOptionsLabels();
+  refreshAccountBox().catch(() => {});
 });
 
-toggleApiKeyEditBtn?.addEventListener("click", toggleApiKeyEdit);
-
 currentUiLanguage = appLanguageSelect.value || "pt-BR";
-updateApiKeyEditUi();
 updateOptionsLabels();
 
 loadSettings().catch((error) => {

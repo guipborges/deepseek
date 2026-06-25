@@ -2,6 +2,7 @@ const counterEl = document.getElementById("counter");
 const sectionsEl = document.getElementById("sections");
 const emptyStateEl = document.getElementById("emptyState");
 const cardEl = document.getElementById("card");
+const searchInput = document.getElementById("searchInput");
 const frontTextEl = document.getElementById("frontText");
 const backTextEl = document.getElementById("backText");
 const metaTextEl = document.getElementById("metaText");
@@ -12,6 +13,7 @@ const flipBtn = document.getElementById("flipBtn");
 const nextBtn = document.getElementById("nextBtn");
 const removeBtn = document.getElementById("removeBtn");
 const clearBtn = document.getElementById("clearBtn");
+const exportCsvBtn = document.getElementById("exportCsvBtn");
 const pronounceCardBtn = document.getElementById("pronounceCardBtn");
 const youglishCardBtn = document.getElementById("youglishCardBtn");
 const pageTitleEl = document.getElementById("pageTitle");
@@ -24,6 +26,7 @@ let visibleCards = [];
 let currentIndex = 0;
 let isFrontVisible = true;
 let activeSection = "all";
+let searchQuery = "";
 let currentUiLanguage = "pt-BR";
 
 const SETTINGS_KEY = "deepseekTranslatorSettings";
@@ -33,6 +36,7 @@ const UI_TEXTS = {
     pageTitle: "Flashcards - DeepSeek Translator",
     headerTitle: "Flashcards",
     emptyState: "Nenhuma palavra salva ainda.",
+    emptyFiltered: "Nenhum flashcard encontrado com os filtros atuais.",
     frontLabel: "Frente",
     backLabel: "Verso",
     prev: "Anterior",
@@ -45,8 +49,11 @@ const UI_TEXTS = {
     youglish: "YouGlish",
     dangerText: "Zona de risco: esta acao remove todos os flashcards salvos.",
     clearAll: "Limpar toda a base",
+    searchPlaceholder: "Buscar palavra ou traducao",
+    exportCsv: "Exportar CSV",
     sectionAll: "Todos",
     counter: "{current} de {total}",
+    filteredCounter: "{current} de {visible} ({total} total)",
     meta: "Secao: {section} | Origem: {source} | Destino: {target}",
     languageAuto: "Auto",
     languageUnknown: "Outro",
@@ -63,6 +70,8 @@ const UI_TEXTS = {
     statusNoCardClear: "Nenhum card para limpar.",
     statusClearCanceled: "Limpeza cancelada.",
     statusAllRemoved: "Todos os cards foram removidos.",
+    statusNoCardExport: "Nenhum card para exportar.",
+    statusExported: "CSV exportado com {count} cards.",
     statusNoCardPronounce: "Nenhum card para pronunciar.",
     statusNoSourceWord: "Card sem palavra de origem.",
     statusPronouncing: "Pronunciando...",
@@ -85,6 +94,7 @@ const UI_TEXTS = {
     pageTitle: "Flashcards - DeepSeek Translator",
     headerTitle: "Flashcards",
     emptyState: "No saved words yet.",
+    emptyFiltered: "No flashcards found with the current filters.",
     frontLabel: "Front",
     backLabel: "Back",
     prev: "Previous",
@@ -97,8 +107,11 @@ const UI_TEXTS = {
     youglish: "YouGlish",
     dangerText: "Danger zone: this action removes all saved flashcards.",
     clearAll: "Clear entire database",
+    searchPlaceholder: "Search word or translation",
+    exportCsv: "Export CSV",
     sectionAll: "All",
     counter: "{current} of {total}",
+    filteredCounter: "{current} of {visible} ({total} total)",
     meta: "Section: {section} | Source: {source} | Target: {target}",
     languageAuto: "Auto",
     languageUnknown: "Other",
@@ -115,6 +128,8 @@ const UI_TEXTS = {
     statusNoCardClear: "No card to clear.",
     statusClearCanceled: "Clear canceled.",
     statusAllRemoved: "All cards were removed.",
+    statusNoCardExport: "No cards to export.",
+    statusExported: "CSV exported with {count} cards.",
     statusNoCardPronounce: "No card to pronounce.",
     statusNoSourceWord: "Card has no source word.",
     statusPronouncing: "Pronouncing...",
@@ -137,6 +152,7 @@ const UI_TEXTS = {
     pageTitle: "Flashcards - DeepSeek Translator",
     headerTitle: "Flashcards",
     emptyState: "Noch keine gespeicherten Woerter.",
+    emptyFiltered: "Keine Flashcards mit den aktuellen Filtern gefunden.",
     frontLabel: "Vorderseite",
     backLabel: "Rueckseite",
     prev: "Zurueck",
@@ -149,8 +165,11 @@ const UI_TEXTS = {
     youglish: "YouGlish",
     dangerText: "Gefahrenbereich: diese Aktion entfernt alle gespeicherten Flashcards.",
     clearAll: "Gesamte Datenbank leeren",
+    searchPlaceholder: "Wort oder Uebersetzung suchen",
+    exportCsv: "CSV exportieren",
     sectionAll: "Alle",
     counter: "{current} von {total}",
+    filteredCounter: "{current} von {visible} ({total} gesamt)",
     meta: "Bereich: {section} | Quelle: {source} | Ziel: {target}",
     languageAuto: "Auto",
     languageUnknown: "Andere",
@@ -167,6 +186,8 @@ const UI_TEXTS = {
     statusNoCardClear: "Keine Karte zum Loeschen.",
     statusClearCanceled: "Loeschen abgebrochen.",
     statusAllRemoved: "Alle Karten wurden entfernt.",
+    statusNoCardExport: "Keine Karten zum Exportieren.",
+    statusExported: "CSV mit {count} Karten exportiert.",
     statusNoCardPronounce: "Keine Karte zum Aussprechen.",
     statusNoSourceWord: "Karte ohne Quellwort.",
     statusPronouncing: "Spricht aus...",
@@ -211,10 +232,11 @@ function applyFlashcardsLanguage() {
   document.title = t("pageTitle");
 
   if (pageTitleEl) pageTitleEl.textContent = t("headerTitle");
-  if (emptyStateEl) emptyStateEl.textContent = t("emptyState");
+  if (emptyStateEl) emptyStateEl.textContent = allCards.length ? t("emptyFiltered") : t("emptyState");
   if (frontLabelEl) frontLabelEl.textContent = t("frontLabel");
   if (backLabelEl) backLabelEl.textContent = t("backLabel");
   if (dangerTextEl) dangerTextEl.textContent = t("dangerText");
+  if (searchInput) searchInput.placeholder = t("searchPlaceholder");
 
   prevBtn.textContent = t("prev");
   nextBtn.textContent = t("next");
@@ -225,6 +247,7 @@ function applyFlashcardsLanguage() {
   }
   removeBtn.textContent = t("removeCurrent");
   clearBtn.textContent = t("clearAll");
+  exportCsvBtn.textContent = t("exportCsv");
   pronounceCardBtn.textContent = t("pronounceWord");
   youglishCardBtn.textContent = t("youglish");
 }
@@ -530,14 +553,31 @@ function getAvailableSections() {
   return ["all", ...sorted];
 }
 
-function applySectionFilter() {
-  if (activeSection === "all") {
-    visibleCards = [...allCards];
-  } else {
-    visibleCards = allCards.filter(
-      (card) => (card.sourceLanguage || "auto").toLowerCase() === activeSection
-    );
+function cardMatchesSearch(card, query) {
+  const normalized = (query || "").trim().toLowerCase();
+  if (!normalized) {
+    return true;
   }
+
+  const haystack = [
+    card.sourceText,
+    card.translatedText,
+    card.sourceLanguage,
+    card.targetLanguage
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(normalized);
+}
+
+function applySectionFilter() {
+  visibleCards = allCards.filter((card) => {
+    const sectionMatches =
+      activeSection === "all" || (card.sourceLanguage || "auto").toLowerCase() === activeSection;
+    return sectionMatches && cardMatchesSearch(card, searchQuery);
+  });
 
   if (currentIndex >= visibleCards.length) {
     currentIndex = 0;
@@ -574,7 +614,10 @@ function renderSections() {
 function render() {
   const total = visibleCards.length;
   if (!total) {
-    counterEl.textContent = t("counter", { current: 0, total: 0 });
+    counterEl.textContent = allCards.length
+      ? t("filteredCounter", { current: 0, visible: 0, total: allCards.length })
+      : t("counter", { current: 0, total: 0 });
+    emptyStateEl.textContent = allCards.length ? t("emptyFiltered") : t("emptyState");
     emptyStateEl.classList.remove("hidden");
     cardEl.classList.add("hidden");
     flipBtn.textContent = t("flip");
@@ -593,7 +636,10 @@ function render() {
   const sourceText = card.sourceText || "";
   const translatedText = card.translatedText || "";
 
-  counterEl.textContent = t("counter", { current: currentIndex + 1, total });
+  const isFiltered = total !== allCards.length;
+  counterEl.textContent = isFiltered
+    ? t("filteredCounter", { current: currentIndex + 1, visible: total, total: allCards.length })
+    : t("counter", { current: currentIndex + 1, total });
   emptyStateEl.classList.add("hidden");
   cardEl.classList.remove("hidden");
 
@@ -709,6 +755,46 @@ async function clearAllCards() {
   setStatus(t("statusAllRemoved"));
 }
 
+function csvEscape(value) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function buildFlashcardsCsv(cards) {
+  const rows = [
+    ["sourceText", "translatedText", "sourceLanguage", "targetLanguage", "createdAt"],
+    ...cards.map((card) => [
+      card.sourceText || "",
+      card.translatedText || "",
+      card.sourceLanguage || "auto",
+      card.targetLanguage || "pt-BR",
+      card.createdAt || ""
+    ])
+  ];
+
+  return rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+}
+
+function exportVisibleCardsCsv() {
+  if (!visibleCards.length) {
+    setStatus(t("statusNoCardExport"), true);
+    return;
+  }
+
+  const csv = buildFlashcardsCsv(visibleCards);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  anchor.href = url;
+  anchor.download = `deepseek-flashcards-${stamp}.csv`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+  setStatus(t("statusExported", { count: visibleCards.length }));
+}
+
 function getCurrentCard() {
   if (!visibleCards.length) {
     return null;
@@ -769,6 +855,14 @@ async function openCurrentCardOnYouGlish() {
 prevBtn.addEventListener("click", prevCard);
 flipBtn.addEventListener("click", flipCard);
 nextBtn.addEventListener("click", nextCard);
+searchInput.addEventListener("input", () => {
+  searchQuery = searchInput.value;
+  currentIndex = 0;
+  isFrontVisible = true;
+  applySectionFilter();
+  render();
+});
+exportCsvBtn.addEventListener("click", exportVisibleCardsCsv);
 removeBtn.addEventListener("click", () => {
   removeCurrentCard().catch((error) => setStatus(t("statusRemoveFailed", { error: error.message }), true));
 });

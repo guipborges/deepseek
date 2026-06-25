@@ -8,6 +8,27 @@ const SELECTION_HISTORY_KEY = "deepseekTranslatorSelectionHistory";
 const DB_NAME = "deepseek-translator-db";
 const DB_VERSION = 1;
 const FLASHCARDS_STORE = "flashcards";
+const MAX_TRANSLATION_CHARS = 12000;
+
+importScripts("auth.js");
+
+chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "AYVU_SUPABASE_AUTH") {
+    return false;
+  }
+
+  const session = message.session || {};
+  if (!session.accessToken) {
+    sendResponse({ ok: false, error: "Missing access token." });
+    return false;
+  }
+
+  setSupabaseSession(session)
+    .then(() => openOrFocusMainWindow())
+    .then(() => sendResponse({ ok: true }))
+    .catch((error) => sendResponse({ ok: false, error: error.message }));
+  return true;
+});
 
 function setPendingText(text) {
   return new Promise((resolve) => {
@@ -314,48 +335,24 @@ function isAdvancedTerm(text) {
 
 async function translateWithDeepSeek(text, overrides = {}) {
   const settings = (await storageGet(SETTINGS_KEY)) || {};
-  const apiKey = (settings.apiKey || "").trim();
   const sourceLanguage = (overrides.sourceLanguage || settings.sourceLanguage || "auto").trim();
   const targetLanguage = (overrides.targetLanguage || settings.targetLanguage || "pt-BR").trim();
-  const model = (settings.model || "deepseek-chat").trim();
 
-  if (!apiKey) {
-    throw new Error("Configure a API key em Configuracoes.");
+  if (!(await getCurrentSession())?.accessToken) {
+    throw new Error("Entre com seu email no popup para traduzir.");
   }
 
-  const response = await fetch("https://api.deepseek.com/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a translation engine. Translate faithfully and naturally. Return only the translated text."
-        },
-        {
-          role: "user",
-          content:
-            `Translate the following text from ${sourceLanguage} to ${targetLanguage}. ` +
-            "Keep formatting and return only the translation.\n\n" +
-            text
-        }
-      ]
-    })
+  if (text.length > MAX_TRANSLATION_CHARS) {
+    throw new Error("Texto muito longo. Selecione um trecho menor para traduzir.");
+  }
+
+  const data = await translateWithBackend({
+    text,
+    sourceLanguage,
+    targetLanguage
   });
 
-  const data = await response.json();
-  if (!response.ok) {
-    const details = data?.error?.message || JSON.stringify(data);
-    throw new Error(details);
-  }
-
-  const translatedText = data?.choices?.[0]?.message?.content?.trim();
+  const translatedText = data?.translatedText?.trim();
   if (!translatedText) {
     throw new Error("Resposta da API sem texto traduzido.");
   }
@@ -510,60 +507,8 @@ function detectLanguageWithChrome(text) {
   });
 }
 
-async function detectLanguageWithDeepSeek(text) {
-  const settings = (await storageGet(SETTINGS_KEY)) || {};
-  const apiKey = (settings.apiKey || "").trim();
-  const model = (settings.model || "deepseek-chat").trim();
-
-  if (!apiKey || !text) {
-    return null;
-  }
-
-  try {
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        max_tokens: 12,
-        messages: [
-          {
-            role: "system",
-            content:
-              "Identify the language of the provided text. Return only the ISO 639-1 code in lowercase, like en, de, fr, es, pt, it, nl, ru, zh. Return und if unknown."
-          },
-          {
-            role: "user",
-            content: text
-          }
-        ]
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      return null;
-    }
-
-    const raw = (data?.choices?.[0]?.message?.content || "").trim().toLowerCase();
-    const match = raw.match(/^[a-z]{2,3}(?:-[a-z]{2})?/);
-    if (!match) {
-      return null;
-    }
-
-    const code = match[0];
-    if (code === "und") {
-      return null;
-    }
-
-    return code;
-  } catch (_error) {
-    return null;
-  }
+async function detectLanguageWithDeepSeek(_text) {
+  return null;
 }
 
 async function detectLanguageSmart(text, fallbackLanguage) {

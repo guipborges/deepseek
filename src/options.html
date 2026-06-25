@@ -3,33 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Configurações - DeepSeek Translator</title>
+    <title>Configurações - Ayvu</title>
     <link rel="stylesheet" href="./options.css" />
   </head>
   <body>
     <main class="app">
       <h1>Configurações</h1>
 
-      <label for="apiKey">API Key DeepSeek</label>
-      <div class="locked-input-row">
-        <input id="apiKey" type="password" placeholder="sk-..." readonly />
-        <button
-          id="toggleApiKeyEditBtn"
-          class="icon-toggle-btn"
-          type="button"
-          title="Liberar edicao"
-          aria-label="Liberar edicao"
-          aria-pressed="false"
-        >
-          ✏️
-        </button>
-      </div>
+      <section class="account-box" aria-label="Conta">
+        <div>
+          <strong id="accountStatusText">Conta nao conectada</strong>
+          <span id="accountUsageText">Entre pelo popup para ativar o trial.</span>
+        </div>
+        <button id="logoutBtn" class="secondary-btn" type="button">Sair</button>
+      </section>
+
+      <label for="backendApiUrl">URL da API</label>
+      <input id="backendApiUrl" type="url" placeholder="https://ayvu-api.ayvu-app.workers.dev" />
+
+      <label for="checkoutUrl">Link de checkout</label>
+      <input id="checkoutUrl" type="url" placeholder="https://..." />
 
       <label for="targetLanguage">Idioma de destino</label>
       <input id="targetLanguage" type="text" value="pt-BR" placeholder="pt-BR, en, es..." />
-
-      <label for="model">Modelo</label>
-      <input id="model" type="text" value="deepseek-chat" />
 
       <label for="popupWidth">Largura do popup (px)</label>
       <input id="popupWidth" type="number" value="340" min="280" max="780" />
@@ -71,6 +67,7 @@
       <p id="status" class="status"></p>
     </main>
 
+    <script src="./auth.js"></script>
     <script src="./options.js"></script>
   </body>
 </html>

@@ -8,6 +8,24 @@ const voicePickerBtn = document.getElementById("voicePickerBtn");
 const voiceSelect = document.getElementById("voiceSelect");
 const voiceSettingsBtn = document.getElementById("voiceSettingsBtn");
 const voiceControlPanel = document.getElementById("voiceControlPanel");
+const onboardingPanel = document.getElementById("onboardingPanel");
+const onboardingEyebrow = document.getElementById("onboardingEyebrow");
+const onboardingTitle = document.getElementById("onboardingTitle");
+const onboardingSteps = document.getElementById("onboardingSteps");
+const onboardingEmailLabel = document.getElementById("onboardingEmailLabel");
+const onboardingEmailInput = document.getElementById("onboardingEmail");
+const onboardingCodeLabel = document.getElementById("onboardingCodeLabel");
+const onboardingCodeInput = document.getElementById("onboardingCode");
+const onboardingTargetLanguageLabel = document.getElementById("onboardingTargetLanguageLabel");
+const onboardingTargetLanguageSelect = document.getElementById("onboardingTargetLanguage");
+const requestMagicLinkBtn = document.getElementById("requestMagicLinkBtn");
+const saveOnboardingBtn = document.getElementById("saveOnboardingBtn");
+const openOnboardingSettingsBtn = document.getElementById("openOnboardingSettingsBtn");
+const dismissOnboardingBtn = document.getElementById("dismissOnboardingBtn");
+const accountPanel = document.getElementById("accountPanel");
+const accountPlanText = document.getElementById("accountPlanText");
+const accountUsageText = document.getElementById("accountUsageText");
+const upgradeBtn = document.getElementById("upgradeBtn");
 
 const translateBtn = document.getElementById("translateBtn");
 const copyBtn = document.getElementById("copyBtn");
@@ -40,19 +58,25 @@ const detailExample1AudioBtn = document.getElementById("detailExample1Audio");
 const detailExample2AudioBtn = document.getElementById("detailExample2Audio");
 const detailPastAudioBtn = document.getElementById("detailPastAudio");
 const detailFutureAudioBtn = document.getElementById("detailFutureAudio");
+const historySearchInput = document.getElementById("historySearchInput");
 const historySelect = document.getElementById("historySelect");
 const useHistoryBtn = document.getElementById("useHistoryBtn");
+const removeHistoryBtn = document.getElementById("removeHistoryBtn");
 const clearHistoryBtn = document.getElementById("clearHistoryBtn");
 
 const SETTINGS_KEY = "deepseekTranslatorSettings";
 const PENDING_TEXT_KEY = "deepseekTranslatorPendingText";
 const SELECTION_HISTORY_KEY = "deepseekTranslatorSelectionHistory";
+const ONBOARDING_DISMISSED_KEY = "deepseekTranslatorOnboardingDismissed";
+const MAX_TRANSLATION_CHARS = 12000;
+const MAX_DETAILS_CHARS = 160;
 let currentUiLanguage = "pt-BR";
 let isApplyingPendingText = false;
 let lastDetailsKey = "";
 let autoDetailsTimer = null;
 let isGeneratingDetails = false;
 let detailsSpeechLanguage = "en-US";
+let selectionHistoryCache = [];
 
 const UI_TEXTS = {
   pt: {
@@ -70,7 +94,9 @@ const UI_TEXTS = {
     nativeAudioTitle: "Audio nativo",
     historyTitle: "Historico de selecoes",
     historyPlaceholder: "Historico (ultimas 20)",
+    historySearchPlaceholder: "Buscar historico",
     useHistory: "Usar",
+    removeHistoryTitle: "Remover item do historico",
     clearHistoryTitle: "Limpar historico",
     translate: "Traduzir",
     outputLabel: "Resultado",
@@ -96,7 +122,30 @@ const UI_TEXTS = {
     tabTranslatorTitle: "Aba Tradutor",
     tabDetailsTitle: "Aba Detalhes",
     tabsAria: "Abas",
-    autoVoiceOption: "Auto (melhor disponivel)"
+    autoVoiceOption: "Auto (melhor disponivel)",
+    onboardingEyebrow: "Conta",
+    onboardingTitle: "Entrar para traduzir",
+    onboardingSteps: [
+      "Informe seu email.",
+      "Clique no link recebido.",
+      "Volte para a extensao com 30 dias gratis ativos."
+    ],
+    onboardingEmail: "Email",
+    onboardingCode: "Codigo de acesso",
+    onboardingTargetLanguage: "Idioma de destino",
+    onboardingRequestCode: "Enviar link",
+    onboardingSave: "Validar e entrar",
+    onboardingSettings: "Configuracoes",
+    onboardingClose: "Fechar",
+    onboardingMissingEmail: "Informe seu email.",
+    onboardingMissingCode: "Digite o codigo recebido por email.",
+    onboardingCodeSent: "Link enviado. Verifique seu email.",
+    onboardingSaved: "Login confirmado.",
+    accountTrial: "Trial",
+    accountPro: "Plano anual ativo",
+    accountExpired: "Trial encerrado",
+    accountUsage: "{used}/{limit} tokens este mes",
+    accountUpgrade: "Plano anual"
   },
   en: {
     pageTitle: "DeepSeek Translator",
@@ -113,7 +162,9 @@ const UI_TEXTS = {
     nativeAudioTitle: "Native audio",
     historyTitle: "Selection history",
     historyPlaceholder: "History (last 20)",
+    historySearchPlaceholder: "Search history",
     useHistory: "Use",
+    removeHistoryTitle: "Remove history item",
     clearHistoryTitle: "Clear history",
     translate: "Translate",
     outputLabel: "Result",
@@ -139,7 +190,30 @@ const UI_TEXTS = {
     tabTranslatorTitle: "Translator tab",
     tabDetailsTitle: "Details tab",
     tabsAria: "Tabs",
-    autoVoiceOption: "Auto (best available)"
+    autoVoiceOption: "Auto (best available)",
+    onboardingEyebrow: "Account",
+    onboardingTitle: "Sign in to translate",
+    onboardingSteps: [
+      "Enter your email.",
+      "Click the link you receive.",
+      "Return to the extension with your 30-day trial active."
+    ],
+    onboardingEmail: "Email",
+    onboardingCode: "Access code",
+    onboardingTargetLanguage: "Target language",
+    onboardingRequestCode: "Send link",
+    onboardingSave: "Verify and sign in",
+    onboardingSettings: "Settings",
+    onboardingClose: "Close",
+    onboardingMissingEmail: "Enter your email.",
+    onboardingMissingCode: "Enter the code from your email.",
+    onboardingCodeSent: "Link sent. Check your email.",
+    onboardingSaved: "Signed in.",
+    accountTrial: "Trial",
+    accountPro: "Annual plan active",
+    accountExpired: "Trial ended",
+    accountUsage: "{used}/{limit} tokens this month",
+    accountUpgrade: "Annual plan"
   },
   de: {
     pageTitle: "DeepSeek Translator",
@@ -156,7 +230,9 @@ const UI_TEXTS = {
     nativeAudioTitle: "Original-Audio",
     historyTitle: "Auswahlverlauf",
     historyPlaceholder: "Verlauf (letzte 20)",
+    historySearchPlaceholder: "Verlauf suchen",
     useHistory: "Nutzen",
+    removeHistoryTitle: "Verlaufseintrag entfernen",
     clearHistoryTitle: "Verlauf loeschen",
     translate: "Uebersetzen",
     outputLabel: "Ergebnis",
@@ -182,7 +258,30 @@ const UI_TEXTS = {
     tabTranslatorTitle: "Uebersetzer-Tab",
     tabDetailsTitle: "Details-Tab",
     tabsAria: "Tabs",
-    autoVoiceOption: "Auto (beste verfuegbar)"
+    autoVoiceOption: "Auto (beste verfuegbar)",
+    onboardingEyebrow: "Konto",
+    onboardingTitle: "Zum Uebersetzen anmelden",
+    onboardingSteps: [
+      "E-Mail eingeben.",
+      "Link in der E-Mail anklicken.",
+      "Zur Erweiterung mit aktiver 30-Tage-Testphase zurueckkehren."
+    ],
+    onboardingEmail: "E-Mail",
+    onboardingCode: "Zugangscode",
+    onboardingTargetLanguage: "Zielsprache",
+    onboardingRequestCode: "Link senden",
+    onboardingSave: "Pruefen und anmelden",
+    onboardingSettings: "Einstellungen",
+    onboardingClose: "Schliessen",
+    onboardingMissingEmail: "Geben Sie Ihre E-Mail ein.",
+    onboardingMissingCode: "Geben Sie den Code aus der E-Mail ein.",
+    onboardingCodeSent: "Link gesendet. Pruefen Sie Ihre E-Mail.",
+    onboardingSaved: "Angemeldet.",
+    accountTrial: "Testphase",
+    accountPro: "Jahresplan aktiv",
+    accountExpired: "Testphase beendet",
+    accountUsage: "{used}/{limit} Tokens diesen Monat",
+    accountUpgrade: "Jahresplan"
   }
 };
 
@@ -231,7 +330,10 @@ function applyPopupLanguage() {
   }
   pronounceBtn.title = t("pronounceTitle");
   nativeAudioBtn.title = t("nativeAudioTitle");
+  historySearchInput.placeholder = t("historySearchPlaceholder");
   historySelect.title = t("historyTitle");
+  removeHistoryBtn.title = t("removeHistoryTitle");
+  removeHistoryBtn.setAttribute("aria-label", t("removeHistoryTitle"));
   clearHistoryBtn.title = t("clearHistoryTitle");
   tabTranslatorBtn.title = t("tabTranslatorTitle");
   tabDetailsBtn.title = t("tabDetailsTitle");
@@ -289,13 +391,45 @@ function applyPopupLanguage() {
   if (historySelect.options.length) {
     historySelect.options[0].textContent = t("historyPlaceholder");
   }
+  renderHistorySelect();
 
   if (voiceSelect?.options?.length) {
     voiceSelect.options[0].textContent = t("autoVoiceOption");
     updateVoicePickerState();
   }
 
+  applyOnboardingLanguage();
   updateSaveFlashcardButtonLabel();
+}
+
+function applyOnboardingLanguage() {
+  if (!onboardingPanel) {
+    return;
+  }
+
+  if (onboardingEyebrow) onboardingEyebrow.textContent = t("onboardingEyebrow");
+  if (onboardingTitle) onboardingTitle.textContent = t("onboardingTitle");
+  if (onboardingEmailLabel) onboardingEmailLabel.textContent = t("onboardingEmail");
+  if (onboardingCodeLabel) onboardingCodeLabel.textContent = t("onboardingCode");
+  if (onboardingTargetLanguageLabel) onboardingTargetLanguageLabel.textContent = t("onboardingTargetLanguage");
+  if (requestMagicLinkBtn) requestMagicLinkBtn.textContent = t("onboardingRequestCode");
+  if (saveOnboardingBtn) saveOnboardingBtn.textContent = t("onboardingSave");
+  if (openOnboardingSettingsBtn) openOnboardingSettingsBtn.textContent = t("onboardingSettings");
+  if (upgradeBtn) upgradeBtn.textContent = t("accountUpgrade");
+  if (dismissOnboardingBtn) {
+    dismissOnboardingBtn.title = t("onboardingClose");
+    dismissOnboardingBtn.setAttribute("aria-label", t("onboardingClose"));
+  }
+
+  if (onboardingSteps) {
+    onboardingSteps.innerHTML = "";
+    const steps = t("onboardingSteps");
+    for (const step of Array.isArray(steps) ? steps : []) {
+      const item = document.createElement("li");
+      item.textContent = step;
+      onboardingSteps.appendChild(item);
+    }
+  }
 }
 
 async function applyAppLanguageFromSettings() {
@@ -358,16 +492,36 @@ function normalizeHistoryText(text) {
   return (text || "").trim().replace(/\s+/g, " ");
 }
 
+function getFilteredHistory() {
+  const query = normalizeHistoryText(historySearchInput.value).toLowerCase();
+  if (!query) {
+    return selectionHistoryCache;
+  }
+
+  return selectionHistoryCache.filter((item) => normalizeHistoryText(item).toLowerCase().includes(query));
+}
+
 async function loadHistorySelect() {
-  const history = (await storageGet(SELECTION_HISTORY_KEY)) || [];
+  selectionHistoryCache = ((await storageGet(SELECTION_HISTORY_KEY)) || []).map(normalizeHistoryText).filter(Boolean);
+  renderHistorySelect();
+}
+
+function renderHistorySelect() {
+  const filteredHistory = getFilteredHistory();
   historySelect.innerHTML = "";
 
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = t("historyPlaceholder");
+  placeholder.textContent = historySearchInput.value
+    ? tl(
+        `Historico filtrado (${filteredHistory.length})`,
+        `Filtered history (${filteredHistory.length})`,
+        `Gefilterter Verlauf (${filteredHistory.length})`
+      )
+    : t("historyPlaceholder");
   historySelect.appendChild(placeholder);
 
-  for (const item of history) {
+  for (const item of filteredHistory) {
     const value = normalizeHistoryText(item);
     if (!value) {
       continue;
@@ -411,8 +565,25 @@ function useSelectedHistoryItem() {
   setStatus(tl("Texto carregado do historico.", "Text loaded from history.", "Text aus Verlauf geladen."));
 }
 
+async function removeSelectedHistoryItem() {
+  const selected = normalizeHistoryText(historySelect.value);
+  if (!selected) {
+    setStatus(
+      tl("Selecione um item do historico.", "Select a history item.", "Waehlen Sie einen Verlaufseintrag aus."),
+      true
+    );
+    return;
+  }
+
+  const next = selectionHistoryCache.filter((item) => normalizeHistoryText(item).toLowerCase() !== selected.toLowerCase());
+  await storageSet(SELECTION_HISTORY_KEY, next);
+  selectionHistoryCache = next;
+  renderHistorySelect();
+  setStatus(tl("Item removido do historico.", "History item removed.", "Verlaufseintrag entfernt."));
+}
+
 async function clearSelectionHistory() {
-  const history = (await storageGet(SELECTION_HISTORY_KEY)) || [];
+  const history = selectionHistoryCache.length ? selectionHistoryCache : (await storageGet(SELECTION_HISTORY_KEY)) || [];
   if (!history.length) {
     setStatus(tl("Historico ja esta vazio.", "History is already empty.", "Verlauf ist bereits leer."));
     return;
@@ -425,6 +596,7 @@ async function clearSelectionHistory() {
   }
 
   await storageSet(SELECTION_HISTORY_KEY, []);
+  selectionHistoryCache = [];
   await loadHistorySelect();
   setStatus(tl("Historico limpo.", "History cleared.", "Verlauf geloescht."));
 }
@@ -453,6 +625,9 @@ function listenThemeChanges() {
     applyTheme(nextSettings.themeMode || "light");
     currentUiLanguage = nextSettings.appLanguage || "pt-BR";
     applyPopupLanguage();
+    refreshOnboarding().catch(() => {
+      // Onboarding refresh is best-effort.
+    });
   });
 }
 
@@ -552,6 +727,14 @@ function isAdvancedTerm(text) {
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.style.color = isError ? "#b00020" : "#586a86";
+}
+
+async function readJsonResponse(response) {
+  try {
+    return await response.json();
+  } catch (_error) {
+    return null;
+  }
 }
 
 function setActiveTab(tabName) {
@@ -697,23 +880,22 @@ async function resolveDetailsLanguage(word, configuredSourceLanguage) {
 async function generateWordDetails(options = {}) {
   const { silent = false, force = false } = options;
   const settings = (await storageGet(SETTINGS_KEY)) || {};
-  const apiKey = (settings.apiKey || "").trim();
-  const model = (settings.model || "deepseek-chat").trim();
   const sourceLanguage = (settings.sourceLanguage || "auto").trim();
   const targetLanguage = (settings.targetLanguage || "pt-BR").trim();
   const word = normalizeTerm(inputText.value);
   const detailsKey = buildDetailsKey(word, sourceLanguage, targetLanguage);
 
-  if (!apiKey) {
+  if (!(await hasBackendSession())) {
     if (!silent) {
       setStatus(
         tl(
-          "Configure a API key em Configuracoes.",
-          "Configure an API key in Settings.",
-          "Konfigurieren Sie einen API-Schluessel in den Einstellungen."
+          "Entre com seu email para gerar detalhes.",
+          "Sign in with your email to generate details.",
+          "Melden Sie sich mit Ihrer E-Mail an, um Details zu erzeugen."
         ),
         true
       );
+      await refreshOnboarding();
     }
     return;
   }
@@ -725,6 +907,20 @@ async function generateWordDetails(options = {}) {
           "Informe uma palavra ou termo para gerar detalhes.",
           "Enter a word or term to generate details.",
           "Geben Sie ein Wort oder einen Begriff ein, um Details zu erzeugen."
+        ),
+        true
+      );
+    }
+    return;
+  }
+
+  if (word.length > MAX_DETAILS_CHARS) {
+    if (!silent) {
+      setStatus(
+        tl(
+          "Detalhes estao disponiveis para palavras ou termos curtos.",
+          "Details are available for words or short terms.",
+          "Details sind fuer Woerter oder kurze Begriffe verfuegbar."
         ),
         true
       );
@@ -748,53 +944,19 @@ async function generateWordDetails(options = {}) {
 
   try {
     const detailsLanguageCode = await resolveDetailsLanguage(word, sourceLanguage);
-    const detailsLanguageName = getDetailsLanguageName(detailsLanguageCode);
     detailsSpeechLanguage = mapLanguageToSpeechLanguage(detailsLanguageCode);
 
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a language assistant. Return only valid JSON with fields: pronunciation, synonym, antonym, synonymTranslation, antonymTranslation, example1, example2, pastExample, futureExample, example1Translation, example2Translation, pastExampleTranslation, futureExampleTranslation. Keep each field concise. " +
-              `Fields pronunciation, synonym, antonym, example1, example2, pastExample and futureExample must be written in ${detailsLanguageName}. ` +
-              `Fields synonymTranslation, antonymTranslation, example1Translation, example2Translation, pastExampleTranslation and futureExampleTranslation must be written in ${targetLanguage}.`
-          },
-          {
-            role: "user",
-            content:
-              `Word/term: ${word}\nSource language: ${sourceLanguage}\nTarget language: ${targetLanguage}\nOutput language for details: ${detailsLanguageCode} (${detailsLanguageName})\n` +
-              "Provide pronunciation using a simplified phonetic scheme with two strict rules: " +
-              "use UPPERCASE letters for the stressed syllable and separate syllables with dots. " +
-              "Example: TRA.kuhng. " +
-              "Return two usage examples, plus one example in past tense and one in future tense. " +
-              `Synonym, antonym and all examples must be entirely in ${detailsLanguageName}. ` +
-              `Also return translations to ${targetLanguage} for synonym, antonym and each example. ` +
-              "Use fields synonymTranslation, antonymTranslation, example1Translation, example2Translation, " +
-              "pastExampleTranslation and futureExampleTranslation."
-          }
-        ]
-      })
+    const data = await wordDetailsWithBackend({
+      word,
+      sourceLanguage: detailsLanguageCode || sourceLanguage,
+      targetLanguage
     });
 
-    const data = await response.json();
-    if (!response.ok) {
-      const details = data?.error?.message || JSON.stringify(data);
-      throw new Error(details);
-    }
-
-    const rawText = data?.choices?.[0]?.message?.content || "";
+    const rawText = data?.detailsText || "";
     const parsed = extractJsonFromText(rawText);
     applyGeneratedWordDetails(parsed);
     lastDetailsKey = detailsKey;
+    updateAccountPanel(data?.account);
     if (!silent) {
       setStatus(tl("Detalhes gerados.", "Details generated.", "Details erstellt."));
     }
@@ -889,6 +1051,145 @@ function storageSet(key, value) {
   return new Promise((resolve) => {
     chrome.storage.local.set({ [key]: value }, () => resolve());
   });
+}
+
+async function hasBackendSession() {
+  const session = await getCurrentSession();
+  return !!session?.accessToken;
+}
+
+function getAccountPlanLabel(plan) {
+  if (plan === "pro") {
+    return t("accountPro");
+  }
+  if (plan === "expired") {
+    return t("accountExpired");
+  }
+  return t("accountTrial");
+}
+
+function formatAccountUsage(user) {
+  const used = Number(user?.usage?.monthlyTokens || 0);
+  const limit = Number(user?.limits?.monthlyTokens || 0);
+  if (!limit) {
+    return t("accountUsage").replace("{used}", String(used)).replace("{limit}", "-");
+  }
+  return t("accountUsage").replace("{used}", String(used)).replace("{limit}", String(limit));
+}
+
+function updateAccountPanel(user = null) {
+  if (!accountPanel) {
+    return;
+  }
+
+  accountPanel.classList.toggle("hidden", !user);
+  if (!user) {
+    return;
+  }
+
+  if (accountPlanText) {
+    accountPlanText.textContent = getAccountPlanLabel(user.plan);
+  }
+  if (accountUsageText) {
+    accountUsageText.textContent = formatAccountUsage(user);
+  }
+}
+
+async function refreshOnboarding() {
+  if (!onboardingPanel) {
+    return;
+  }
+
+  const settings = (await storageGet(SETTINGS_KEY)) || {};
+  const hasSession = await hasBackendSession();
+  const shouldShow = !hasSession;
+
+  onboardingPanel.classList.toggle("hidden", !shouldShow);
+  updateAccountPanel(null);
+  if (!shouldShow) {
+    try {
+      const account = await getBackendAccount();
+      updateAccountPanel(account.user);
+    } catch (_error) {
+      await signOut();
+      onboardingPanel.classList.remove("hidden");
+      updateAccountPanel(null);
+    }
+    return;
+  }
+
+  onboardingEmailInput.value = "";
+  onboardingCodeInput.value = "";
+  onboardingTargetLanguageSelect.value = settings.targetLanguage || quickTargetLanguageSelect.value || "pt-BR";
+  if (onboardingTargetLanguageSelect.value !== (settings.targetLanguage || quickTargetLanguageSelect.value || "pt-BR")) {
+    onboardingTargetLanguageSelect.value = "pt-BR";
+  }
+}
+
+async function requestOnboardingMagicLink() {
+  const email = (onboardingEmailInput?.value || "").trim();
+  if (!email) {
+    setStatus(t("onboardingMissingEmail"), true);
+    onboardingEmailInput?.focus();
+    return;
+  }
+
+  try {
+    await signInWithOtp(email);
+    setStatus(t("onboardingCodeSent"));
+    onboardingCodeInput?.focus();
+  } catch (error) {
+    setStatus(`Erro: ${error.message}`, true);
+  }
+}
+
+async function saveOnboardingSettings() {
+  const email = (onboardingEmailInput?.value || "").trim();
+  const code = (onboardingCodeInput?.value || "").trim();
+  if (!email) {
+    setStatus(t("onboardingMissingEmail"), true);
+    onboardingEmailInput?.focus();
+    return;
+  }
+  if (!code) {
+    setStatus(t("onboardingMissingCode"), true);
+    onboardingCodeInput?.focus();
+    return;
+  }
+
+  try {
+    const result = await verifyOtp(email, code);
+    const currentSettings = (await storageGet(SETTINGS_KEY)) || {};
+    const targetLanguage = onboardingTargetLanguageSelect?.value || "pt-BR";
+    const updated = {
+      ...currentSettings,
+      sourceLanguage: currentSettings.sourceLanguage || "auto",
+      targetLanguage,
+      popupWidth: currentSettings.popupWidth || 340,
+      popupHeight: currentSettings.popupHeight || 520,
+      themeMode: currentSettings.themeMode || "light",
+      appLanguage: currentSettings.appLanguage || currentUiLanguage || "pt-BR",
+      popupOpenTrigger: currentSettings.popupOpenTrigger || "t-click",
+      openMainWindowOnDoubleClick: currentSettings.openMainWindowOnDoubleClick || false
+    };
+
+    await storageSet(SETTINGS_KEY, updated);
+    await storageSet(ONBOARDING_DISMISSED_KEY, true);
+    quickTargetLanguageSelect.value = targetLanguage;
+    onboardingPanel?.classList.add("hidden");
+    
+    // Fetch account info after login
+    const account = await getBackendAccount();
+    updateAccountPanel(account.user);
+    setStatus(t("onboardingSaved"));
+  } catch (error) {
+    setStatus(`Erro: ${error.message}`, true);
+  }
+}
+
+async function dismissOnboarding() {
+  await storageSet(ONBOARDING_DISMISSED_KEY, true);
+  onboardingPanel?.classList.add("hidden");
 }
 
 async function pickSelection() {
@@ -1380,15 +1681,20 @@ function pickAudioFromDictionaryResponse(data) {
 }
 
 async function fetchDictionaryAudioUrl(word, languageCode) {
-  const response = await fetch(
-    `https://api.dictionaryapi.dev/api/v2/entries/${encodeURIComponent(languageCode)}/${encodeURIComponent(word)}`
-  );
+  let response;
+  try {
+    response = await fetch(
+      `https://api.dictionaryapi.dev/api/v2/entries/${encodeURIComponent(languageCode)}/${encodeURIComponent(word)}`
+    );
+  } catch (_error) {
+    return "";
+  }
 
   if (!response.ok) {
     return "";
   }
 
-  const data = await response.json();
+  const data = await readJsonResponse(response);
   return pickAudioFromDictionaryResponse(data);
 }
 
@@ -1558,14 +1864,20 @@ async function updateQuickLanguages() {
 
 async function translate() {
   const settings = (await storageGet(SETTINGS_KEY)) || {};
-  const apiKey = (settings.apiKey || "").trim();
   const sourceLanguage = (settings.sourceLanguage || "auto").trim();
   const targetLanguage = (settings.targetLanguage || "pt-BR").trim();
-  const model = (settings.model || "deepseek-chat").trim();
   const text = inputText.value.trim();
 
-  if (!apiKey) {
-    setStatus(tl("Configure a API key em Configuracoes.", "Configure an API key in Settings.", "Konfigurieren Sie einen API-Schluessel in den Einstellungen."), true);
+  if (!(await hasBackendSession())) {
+    setStatus(
+      tl(
+        "Entre com seu email para traduzir.",
+        "Sign in with your email to translate.",
+        "Melden Sie sich mit Ihrer E-Mail an, um zu uebersetzen."
+      ),
+      true
+    );
+    await refreshOnboarding();
     return;
   }
 
@@ -1574,54 +1886,40 @@ async function translate() {
     return;
   }
 
+  if (text.length > MAX_TRANSLATION_CHARS) {
+    setStatus(
+      tl(
+        "Texto muito longo. Selecione um trecho menor para traduzir.",
+        "Text is too long. Select a shorter passage to translate.",
+        "Text ist zu lang. Waehlen Sie einen kuerzeren Abschnitt zur Uebersetzung."
+      ),
+      true
+    );
+    return;
+  }
+
   setStatus(tl("Traduzindo...", "Translating...", "Wird uebersetzt..."));
   outputText.value = "";
 
   try {
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a translation engine. Translate faithfully and naturally. Return only the translated text."
-          },
-          {
-            role: "user",
-            content:
-              `Translate the following text from ${sourceLanguage} to ${targetLanguage}. ` +
-              "Keep formatting and return only the translation.\n\n" +
-              text
-          }
-        ]
-      })
+    const data = await translateWithBackend({
+      text,
+      sourceLanguage,
+      targetLanguage
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      const details = data?.error?.message || JSON.stringify(data);
-      throw new Error(details);
-    }
-
-    const translated = data?.choices?.[0]?.message?.content?.trim();
+    const translated = data?.translatedText?.trim();
 
     if (!translated) {
       throw new Error("Resposta da API sem texto traduzido.");
     }
 
     outputText.value = normalizeTranslatedText(translated);
+    updateAccountPanel(data?.account);
     scheduleAutoDetailsGeneration(200);
     setStatus(tl("Traducao concluida.", "Translation completed.", "Uebersetzung abgeschlossen."));
   } catch (error) {
-    setStatus(tl("Translation error: ", "Translation error: ", "Uebersetzungsfehler: ") + error.message, true);
+    setStatus(tl("Erro na traducao: ", "Translation error: ", "Uebersetzungsfehler: ") + error.message, true);
   }
 }
 
@@ -1757,6 +2055,45 @@ function openFlashcards() {
 translateBtn.addEventListener("click", translate);
 copyBtn.addEventListener("click", copyResult);
 openSettingsBtn.addEventListener("click", openSettings);
+requestMagicLinkBtn?.addEventListener("click", () => {
+  requestOnboardingMagicLink().catch((error) => {
+    setStatus(
+      tl("Falha ao enviar codigo: ", "Failed to send code: ", "Code konnte nicht gesendet werden: ") + error.message,
+      true
+    );
+  });
+});
+saveOnboardingBtn?.addEventListener("click", () => {
+  saveOnboardingSettings().catch((error) => {
+    setStatus(tl("Falha ao entrar: ", "Sign-in failed: ", "Anmeldung fehlgeschlagen: ") + error.message, true);
+  });
+});
+upgradeBtn?.addEventListener("click", () => {
+  getCheckoutUrl()
+    .then((url) => {
+      if (!url) {
+        setStatus(
+          tl(
+            "Configure o link de checkout nas Configuracoes.",
+            "Configure the checkout link in Settings.",
+            "Konfigurieren Sie den Checkout-Link in den Einstellungen."
+          ),
+          true
+        );
+        return;
+      }
+      chrome.tabs.create({ url });
+    })
+    .catch((error) => {
+      setStatus(tl("Falha ao abrir checkout: ", "Failed to open checkout: ", "Checkout konnte nicht geoeffnet werden: ") + error.message, true);
+    });
+});
+openOnboardingSettingsBtn?.addEventListener("click", openSettings);
+dismissOnboardingBtn?.addEventListener("click", () => {
+  dismissOnboarding().catch((error) => {
+    setStatus(tl("Falha ao fechar introducao: ", "Failed to close setup: ", "Einrichtung konnte nicht geschlossen werden: ") + error.message, true);
+  });
+});
 voiceSettingsBtn?.addEventListener("click", openSettings);
 saveWordBtn.addEventListener("click", () => {
   saveCurrentWord().catch((error) => {
@@ -1785,11 +2122,17 @@ nativeAudioBtn.addEventListener("click", () => {
   });
 });
 useHistoryBtn.addEventListener("click", useSelectedHistoryItem);
+removeHistoryBtn.addEventListener("click", () => {
+  removeSelectedHistoryItem().catch((error) => {
+    setStatus(tl("Falha ao remover historico: ", "Failed to remove history: ", "Fehler beim Entfernen des Verlaufs: ") + error.message, true);
+  });
+});
 clearHistoryBtn.addEventListener("click", () => {
   clearSelectionHistory().catch((error) => {
     setStatus(tl("Falha ao limpar historico: ", "Failed to clear history: ", "Fehler beim Loeschen des Verlaufs: ") + error.message, true);
   });
 });
+historySearchInput.addEventListener("input", renderHistorySelect);
 historySelect.addEventListener("change", () => {
   const selected = normalizeHistoryText(historySelect.value);
   if (!selected) {
@@ -1883,13 +2226,24 @@ listenThemeChanges();
 setActiveTab("translator");
 resetWordDetails();
 
-Promise.all([
-  applyThemeFromSettings(),
-  applyAppLanguageFromSettings(),
-  applyPopupSizeFromSettings(),
-  populateVoiceSelect(),
-  loadPendingTextAndTranslate(),
-  loadHistorySelect()
-]).catch((error) => {
+async function initPopup() {
+  const authRedirect = await handleSupabaseAuthRedirectFromUrl();
+
+  await Promise.all([
+    applyThemeFromSettings(),
+    applyAppLanguageFromSettings(),
+    applyPopupSizeFromSettings(),
+    populateVoiceSelect(),
+    refreshOnboarding(),
+    loadPendingTextAndTranslate(),
+    loadHistorySelect()
+  ]);
+
+  if (authRedirect?.ok) {
+    setStatus(t("onboardingSaved"));
+  }
+}
+
+initPopup().catch((error) => {
   setStatus(tl("Falha ao iniciar popup: ", "Failed to initialize popup: ", "Fehler beim Starten des Popups: ") + error.message, true);
 });

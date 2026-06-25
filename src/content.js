@@ -3,6 +3,8 @@ let iconEl = null;
 let bubbleEl = null;
 const BUBBLE_SOURCE_LANGUAGE_KEY = "deepseekTranslatorBubbleSourceLanguage";
 const SETTINGS_KEY = "deepseekTranslatorSettings";
+const FLOATING_Z_INDEX = "2147483647";
+const SENSITIVE_INPUT_TYPES = new Set(["password", "email", "tel", "number", "date", "datetime-local", "month", "time", "week"]);
 
 function hasRuntimeMessaging() {
   return typeof chrome !== "undefined" && !!chrome.runtime && typeof chrome.runtime.sendMessage === "function";
@@ -205,6 +207,47 @@ function normalizeTerm(text) {
   return (text || "").trim().replace(/\s+/g, " ");
 }
 
+function isEditableOrSensitiveElement(element) {
+  if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+
+  const editable = element.closest("input, textarea, [contenteditable=''], [contenteditable='true']");
+  if (!editable) {
+    return false;
+  }
+
+  const tagName = editable.tagName?.toLowerCase();
+  if (tagName === "textarea" || editable.isContentEditable) {
+    return true;
+  }
+
+  if (tagName === "input") {
+    const type = (editable.getAttribute("type") || "text").toLowerCase();
+    return SENSITIVE_INPUT_TYPES.has(type) || type === "text" || type === "search" || type === "url";
+  }
+
+  return true;
+}
+
+function shouldIgnoreSelection() {
+  const selection = window.getSelection();
+  const activeElement = document.activeElement;
+
+  if (isEditableOrSensitiveElement(activeElement)) {
+    return true;
+  }
+
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  const range = selection.getRangeAt(0);
+  const container = range.commonAncestorContainer;
+  const element = container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement;
+  return isEditableOrSensitiveElement(element);
+}
+
 async function translateSelectionToBubble(anchorX, anchorY, sourceText) {
   showBubbleAt(anchorX, anchorY, "Traduzindo...");
 
@@ -319,6 +362,10 @@ function isAdvancedTerm(text) {
 }
 
 function getCurrentSelectedText() {
+  if (shouldIgnoreSelection()) {
+    return "";
+  }
+
   const selection = window.getSelection();
   if (!selection) {
     return "";
@@ -342,6 +389,10 @@ function removeBubble() {
 }
 
 function getSelectionRect() {
+  if (shouldIgnoreSelection()) {
+    return null;
+  }
+
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
     return null;
@@ -370,7 +421,7 @@ function ensureIcon() {
   iconEl.textContent = "T";
   iconEl.title = "Traduzir selecao";
   iconEl.style.position = "absolute";
-  iconEl.style.zIndex = "2147483647";
+  iconEl.style.zIndex = FLOATING_Z_INDEX;
   iconEl.style.width = "28px";
   iconEl.style.height = "28px";
   iconEl.style.border = "none";
@@ -381,6 +432,7 @@ function ensureIcon() {
   iconEl.style.fontWeight = "700";
   iconEl.style.cursor = "pointer";
   iconEl.style.boxShadow = "0 3px 12px rgba(0,0,0,0.25)";
+  iconEl.style.fontFamily = "Segoe UI, Tahoma, sans-serif";
 
   iconEl.addEventListener("mousedown", (event) => {
     event.preventDefault();
@@ -413,11 +465,56 @@ function showIconForSelection() {
 
   selectedText = text;
   const icon = ensureIcon();
-  const left = rect.right + window.scrollX + 6;
-  const top = rect.top + window.scrollY - 2;
+  const left = Math.min(rect.right + window.scrollX + 6, window.scrollX + window.innerWidth - 34);
+  const top = Math.max(rect.top + window.scrollY - 2, window.scrollY + 6);
 
   icon.style.left = `${left}px`;
   icon.style.top = `${top}px`;
+}
+
+function positionFloatingElement(element, x, y, offsetY = 8) {
+  const margin = 8;
+  const viewportLeft = window.scrollX + margin;
+  const viewportTop = window.scrollY + margin;
+  const viewportRight = window.scrollX + window.innerWidth - margin;
+  const viewportBottom = window.scrollY + window.innerHeight - margin;
+
+  let left = x;
+  let top = y + offsetY;
+
+  element.style.left = `${left}px`;
+  element.style.top = `${top}px`;
+
+  const rect = element.getBoundingClientRect();
+  const width = rect.width || 320;
+  const height = rect.height || 120;
+
+  if (left + width > viewportRight) {
+    left = Math.max(viewportLeft, viewportRight - width);
+  }
+
+  if (top + height > viewportBottom) {
+    top = Math.max(viewportTop, y - height - offsetY);
+  }
+
+  element.style.left = `${left}px`;
+  element.style.top = `${top}px`;
+}
+
+function createBubbleActionButton(label, background) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  button.style.border = "none";
+  button.style.borderRadius = "6px";
+  button.style.padding = "5px 7px";
+  button.style.background = background;
+  button.style.color = "#fff";
+  button.style.fontSize = "11px";
+  button.style.lineHeight = "1.2";
+  button.style.cursor = "pointer";
+  button.style.fontFamily = "Segoe UI, Tahoma, sans-serif";
+  return button;
 }
 
 function showBubbleAt(x, y, text, isError = false) {
@@ -425,9 +522,7 @@ function showBubbleAt(x, y, text, isError = false) {
 
   bubbleEl = document.createElement("div");
   bubbleEl.style.position = "absolute";
-  bubbleEl.style.left = `${x}px`;
-  bubbleEl.style.top = `${y + 8}px`;
-  bubbleEl.style.zIndex = "2147483647";
+  bubbleEl.style.zIndex = FLOATING_Z_INDEX;
   bubbleEl.style.maxWidth = "320px";
   bubbleEl.style.padding = "10px";
   bubbleEl.style.borderRadius = "10px";
@@ -436,11 +531,15 @@ function showBubbleAt(x, y, text, isError = false) {
   bubbleEl.style.border = "1px solid #d8e0ef";
   bubbleEl.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
   bubbleEl.style.fontSize = "13px";
+  bubbleEl.style.fontFamily = "Segoe UI, Tahoma, sans-serif";
   bubbleEl.style.lineHeight = "1.4";
   bubbleEl.style.whiteSpace = "pre-wrap";
   bubbleEl.textContent = text;
+  bubbleEl.addEventListener("mousedown", (event) => event.stopPropagation());
+  bubbleEl.addEventListener("click", (event) => event.stopPropagation());
 
   document.body.appendChild(bubbleEl);
+  positionFloatingElement(bubbleEl, x, y);
 }
 
 function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLanguage = "auto") {
@@ -448,9 +547,7 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
 
   bubbleEl = document.createElement("div");
   bubbleEl.style.position = "absolute";
-  bubbleEl.style.left = `${x}px`;
-  bubbleEl.style.top = `${y + 8}px`;
-  bubbleEl.style.zIndex = "2147483647";
+  bubbleEl.style.zIndex = FLOATING_Z_INDEX;
   bubbleEl.style.maxWidth = "360px";
   bubbleEl.style.padding = "10px";
   bubbleEl.style.borderRadius = "10px";
@@ -458,6 +555,9 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
   bubbleEl.style.color = "#10213d";
   bubbleEl.style.border = "1px solid #d8e0ef";
   bubbleEl.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
+  bubbleEl.style.fontFamily = "Segoe UI, Tahoma, sans-serif";
+  bubbleEl.addEventListener("mousedown", (event) => event.stopPropagation());
+  bubbleEl.addEventListener("click", (event) => event.stopPropagation());
 
   const textEl = document.createElement("div");
   textEl.style.fontSize = "16px";
@@ -509,17 +609,7 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
   buttonRow.style.flexWrap = "wrap";
   buttonRow.style.alignItems = "center";
 
-  const saveBtn = document.createElement("button");
-  saveBtn.type = "button";
-  saveBtn.textContent = "Salvar no flashcard";
-  saveBtn.style.border = "none";
-  saveBtn.style.borderRadius = "6px";
-  saveBtn.style.padding = "4px 6px";
-  saveBtn.style.background = "#0b63f3";
-  saveBtn.style.color = "#fff";
-  saveBtn.style.fontSize = "11px";
-  saveBtn.style.lineHeight = "1.2";
-  saveBtn.style.cursor = "pointer";
+  const saveBtn = createBubbleActionButton("Salvar", "#0b63f3");
 
   const statusEl = document.createElement("span");
   statusEl.style.fontSize = "11px";
@@ -594,17 +684,7 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
     }
   });
 
-  const pronounceBtn = document.createElement("button");
-  pronounceBtn.type = "button";
-  pronounceBtn.textContent = "Pronunciar";
-  pronounceBtn.style.border = "none";
-  pronounceBtn.style.borderRadius = "6px";
-  pronounceBtn.style.padding = "4px 6px";
-  pronounceBtn.style.background = "#138a3d";
-  pronounceBtn.style.color = "#fff";
-  pronounceBtn.style.fontSize = "11px";
-  pronounceBtn.style.lineHeight = "1.2";
-  pronounceBtn.style.cursor = "pointer";
+  const pronounceBtn = createBubbleActionButton("Ouvir", "#138a3d");
 
   pronounceBtn.addEventListener("click", async (event) => {
     event.preventDefault();
@@ -621,17 +701,7 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
     updateFooterPairLabel();
   });
 
-  const youglishBtn = document.createElement("button");
-  youglishBtn.type = "button";
-  youglishBtn.textContent = "YouGlish";
-  youglishBtn.style.border = "none";
-  youglishBtn.style.borderRadius = "6px";
-  youglishBtn.style.padding = "4px 6px";
-  youglishBtn.style.background = "#7a4dd9";
-  youglishBtn.style.color = "#fff";
-  youglishBtn.style.fontSize = "11px";
-  youglishBtn.style.lineHeight = "1.2";
-  youglishBtn.style.cursor = "pointer";
+  const youglishBtn = createBubbleActionButton("YouGlish", "#7a4dd9");
 
   youglishBtn.addEventListener("click", async (event) => {
     event.preventDefault();
@@ -696,6 +766,7 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
   bubbleEl.appendChild(languageRow);
   bubbleEl.appendChild(buttonRow);
   document.body.appendChild(bubbleEl);
+  positionFloatingElement(bubbleEl, x, y);
 }
 
 function sendRuntimeMessage(payload) {
@@ -758,11 +829,11 @@ document.addEventListener("dblclick", async () => {
 });
 
 document.addEventListener("click", (event) => {
-  if (iconEl && event.target === iconEl) {
+  if (iconEl && iconEl.contains(event.target)) {
     return;
   }
 
-  if (bubbleEl && event.target === bubbleEl) {
+  if (bubbleEl && bubbleEl.contains(event.target)) {
     return;
   }
 

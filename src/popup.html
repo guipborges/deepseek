@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DeepSeek Translator</title>
+    <title>Ayvu</title>
     <link rel="stylesheet" href="./popup.css" />
   </head>
   <body>
     <main class="app">
       <header class="topbar">
-        <h1>DeepSeek Translator</h1>
+        <h1>Ayvu</h1>
         <div class="top-controls">
           <span class="lang-icon" title="Idiomas">🌐</span>
           <select id="quickSourceLanguage" class="mini-select" title="Idioma de origem">
@@ -38,6 +38,53 @@
         </div>
       </header>
 
+      <section id="onboardingPanel" class="onboarding-panel hidden" aria-labelledby="onboardingTitle">
+        <div class="onboarding-head">
+          <div>
+            <p id="onboardingEyebrow" class="onboarding-eyebrow">Conta</p>
+            <h2 id="onboardingTitle">Entrar para traduzir</h2>
+          </div>
+          <button id="dismissOnboardingBtn" class="onboarding-dismiss" type="button" title="Fechar" aria-label="Fechar">
+            ×
+          </button>
+        </div>
+
+        <ol id="onboardingSteps" class="onboarding-steps">
+          <li>Informe seu email.</li>
+          <li>Clique no link recebido.</li>
+          <li>Volte para a extensao com 30 dias gratis ativos.</li>
+        </ol>
+
+        <label id="onboardingEmailLabel" for="onboardingEmail">Email</label>
+        <input id="onboardingEmail" type="email" placeholder="voce@email.com" autocomplete="email" />
+
+        <label id="onboardingCodeLabel" class="hidden" for="onboardingCode">Codigo de acesso</label>
+        <input id="onboardingCode" class="hidden" type="text" inputmode="numeric" placeholder="123456" autocomplete="one-time-code" />
+
+        <label id="onboardingTargetLanguageLabel" for="onboardingTargetLanguage">Idioma de destino</label>
+        <select id="onboardingTargetLanguage">
+          <option value="pt-BR">Português (Brasil)</option>
+          <option value="en-US">English</option>
+          <option value="de-DE">Deutsch</option>
+          <option value="es-ES">Español</option>
+          <option value="fr-FR">Français</option>
+        </select>
+
+        <div class="onboarding-actions">
+          <button id="requestMagicLinkBtn" type="button">Enviar link</button>
+          <button id="saveOnboardingBtn" class="hidden" type="button">Validar e entrar</button>
+          <button id="openOnboardingSettingsBtn" class="secondary-btn" type="button">Configurações</button>
+        </div>
+      </section>
+
+      <section id="accountPanel" class="account-panel hidden" aria-label="Conta">
+        <div>
+          <strong id="accountPlanText">Trial</strong>
+          <span id="accountUsageText">0 usados</span>
+        </div>
+        <button id="upgradeBtn" class="secondary-btn" type="button">Plano anual</button>
+      </section>
+
       <section id="translatorTabPanel" class="tab-panel active">
         <div class="input-header-row">
           <label for="inputText">Texto</label>
@@ -48,11 +95,15 @@
         </div>
         <textarea id="inputText" placeholder="Dê duplo clique numa palavra na página ou cole aqui"></textarea>
 
+        <div class="history-tools">
+          <input id="historySearchInput" type="search" placeholder="Buscar histórico" autocomplete="off" />
+        </div>
         <div class="history-row">
           <select id="historySelect" title="Historico de selecoes">
             <option value="">Historico (ultimas 20)</option>
           </select>
           <button id="useHistoryBtn" type="button">Usar</button>
+          <button id="removeHistoryBtn" type="button" title="Remover item">✕</button>
           <button id="clearHistoryBtn" type="button" title="Limpar historico">🧹</button>
         </div>
 
@@ -159,6 +210,7 @@
       </nav>
     </main>
 
+    <script src="./auth.js"></script>
     <script src="./popup.js"></script>
   </body>
 </html>
