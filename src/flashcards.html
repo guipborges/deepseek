@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flashcards - DeepSeek Translator</title>
+    <link rel="stylesheet" href="./flashcards.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <h1 id="pageTitle">Flashcards</h1>
+        <p id="counter" class="counter">0 de 0</p>
+      </header>
+
+      <section id="sections" class="sections"></section>
+
+      <section id="emptyState" class="empty">
+        Nenhuma palavra salva ainda.
+      </section>
+
+      <section id="card" class="card hidden">
+        <p id="frontLabel" class="label">Frente</p>
+        <p id="frontText" class="text"></p>
+
+        <p id="backLabel" class="label">Verso</p>
+        <p id="backText" class="text"></p>
+
+        <p id="metaText" class="meta"></p>
+      </section>
+
+      <div class="buttons">
+        <button id="prevBtn" type="button">Anterior</button>
+        <button id="flipBtn" type="button">Virar</button>
+        <button id="nextBtn" type="button">Próximo</button>
+      </div>
+
+      <div class="buttons">
+        <button id="removeBtn" type="button">Remover atual</button>
+      </div>
+
+      <div class="buttons">
+        <button id="pronounceCardBtn" type="button">Pronunciar palavra</button>
+        <button id="youglishCardBtn" type="button">YouGlish</button>
+      </div>
+
+      <section class="danger-zone">
+        <p id="dangerText" class="danger-text">Zona de risco: esta ação remove todos os flashcards salvos.</p>
+        <button id="clearBtn" class="danger-ghost" type="button">Limpar toda a base</button>
+      </section>
+
+      <p id="status" class="status"></p>
+    </main>
+
+    <script src="./flashcards.js"></script>
+  </body>
+</html>

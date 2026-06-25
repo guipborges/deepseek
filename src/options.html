@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configurações - DeepSeek Translator</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <main class="app">
+      <h1>Configurações</h1>
+
+      <label for="apiKey">API Key DeepSeek</label>
+      <div class="locked-input-row">
+        <input id="apiKey" type="password" placeholder="sk-..." readonly />
+        <button
+          id="toggleApiKeyEditBtn"
+          class="icon-toggle-btn"
+          type="button"
+          title="Liberar edicao"
+          aria-label="Liberar edicao"
+          aria-pressed="false"
+        >
+          ✏️
+        </button>
+      </div>
+
+      <label for="targetLanguage">Idioma de destino</label>
+      <input id="targetLanguage" type="text" value="pt-BR" placeholder="pt-BR, en, es..." />
+
+      <label for="model">Modelo</label>
+      <input id="model" type="text" value="deepseek-chat" />
+
+      <label for="popupWidth">Largura do popup (px)</label>
+      <input id="popupWidth" type="number" value="340" min="280" max="780" />
+
+      <label for="popupHeight">Altura do popup (px)</label>
+      <input id="popupHeight" type="number" value="520" min="260" max="780" />
+
+      <label for="themeMode">Tema</label>
+      <select id="themeMode">
+        <option value="light">Claro</option>
+        <option value="dark">Escuro</option>
+      </select>
+
+      <label for="appLanguage">Lingua do app</label>
+      <select id="appLanguage">
+        <option value="pt-BR">PT-BR (Portugues)</option>
+        <option value="en-US">US (English)</option>
+        <option value="de-DE">DE (Deutsch)</option>
+        <option value="es-ES">ES (Espanol)</option>
+        <option value="fr-FR">FR (Francais)</option>
+      </select>
+
+      <fieldset class="trigger-mode-fieldset" id="popupOpenTriggerFieldset">
+        <legend id="popupOpenTriggerLegend">Abertura do popup principal</legend>
+        <label class="checkbox-row" for="openOnTClick">
+          <input id="openOnTClick" name="popupOpenTrigger" type="radio" value="t-click" checked />
+          Abre popup ao clicar no T
+        </label>
+        <label class="checkbox-row" for="openOnDoubleClick">
+          <input id="openOnDoubleClick" name="popupOpenTrigger" type="radio" value="double-click" />
+          Abre popup so com duplo clique na palavra
+        </label>
+      </fieldset>
+
+      <div class="buttons">
+        <button id="saveBtn" type="button">Salvar</button>
+      </div>
+
+      <p id="status" class="status"></p>
+    </main>
+
+    <script src="./options.js"></script>
+  </body>
+</html>

@@ -1,0 +1,57 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f7fb;
+  --panel: #ffffff;
+  --text: #10213d;
+  --muted: #586a86;
+  --line: #d8e0ef;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  background: radial-gradient(circle at top right, #d9e8ff 0%, var(--bg) 45%);
+  color: var(--text);
+}
+
+.app {
+  height: 100vh;
+  padding: 12px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+a {
+  color: #0b63f3;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.hint {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+iframe {
+  width: 100%;
+  height: calc(100vh - 90px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}

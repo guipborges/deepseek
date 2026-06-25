@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeepSeek Translator</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <h1>DeepSeek Translator</h1>
+        <div class="top-controls">
+          <span class="lang-icon" title="Idiomas">🌐</span>
+          <select id="quickSourceLanguage" class="mini-select" title="Idioma de origem">
+            <option value="auto">Auto</option>
+            <option value="de-DE">DE</option>
+            <option value="en-US">US</option>
+            <option value="pt-BR">PT</option>
+          </select>
+          <select id="quickTargetLanguage" class="mini-select" title="Idioma de destino">
+            <option value="pt-BR">PT</option>
+            <option value="en-US">EN</option>
+            <option value="de-DE">DE</option>
+            <option value="es-ES">ES</option>
+            <option value="fr-FR">FR</option>
+          </select>
+          <button id="resetSizeBtn" class="icon-btn" type="button" title="Voltar tamanho padrão">↺</button>
+          <button id="voicePickerBtn" class="icon-btn" type="button" title="Voz automática" aria-label="Voz automática">🎤</button>
+          <button id="openSettingsBtn" class="icon-btn" type="button" title="Configurações">⚙️</button>
+        </div>
+        <div id="voiceControlPanel" class="voice-control-panel hidden">
+          <div class="voice-inline-row">
+            <select id="voiceSelect">
+              <option value="auto">Auto (melhor disponivel)</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      <section id="translatorTabPanel" class="tab-panel active">
+        <div class="input-header-row">
+          <label for="inputText">Texto</label>
+          <div class="input-audio-actions">
+            <button id="pronounceBtn" class="icon-only-btn" type="button" title="Pronunciar">🔊</button>
+            <button id="nativeAudioBtn" class="icon-only-btn" type="button" title="Audio nativo">🎧</button>
+          </div>
+        </div>
+        <textarea id="inputText" placeholder="Dê duplo clique numa palavra na página ou cole aqui"></textarea>
+
+        <div class="history-row">
+          <select id="historySelect" title="Historico de selecoes">
+            <option value="">Historico (ultimas 20)</option>
+          </select>
+          <button id="useHistoryBtn" type="button">Usar</button>
+          <button id="clearHistoryBtn" type="button" title="Limpar historico">🧹</button>
+        </div>
+
+        <div class="buttons buttons-single">
+          <button id="translateBtn" type="button">Traduzir</button>
+        </div>
+
+        <label for="outputText">Resultado</label>
+        <textarea id="outputText" readonly></textarea>
+
+        <div class="result-actions">
+          <button id="copyBtn" type="button">Copiar resultado</button>
+          <button id="saveWordBtn" type="button">Salvar FlashCard (AUTO)</button>
+        </div>
+
+        <div class="buttons">
+          <button id="openFlashcardsBtn" type="button">Flashcards</button>
+          <button id="youglishBtn" type="button">YouGlish</button>
+          <button id="forvoBtn" type="button">Forvo</button>
+        </div>
+      </section>
+
+      <section id="detailsTabPanel" class="tab-panel">
+        <div class="details-header-row">
+          <p class="details-title">Detalhes da palavra traduzida</p>
+          <button id="generateDetailsBtn" type="button">Gerar detalhes</button>
+        </div>
+
+        <div class="details-grid">
+          <div class="detail-card detail-card-wide">
+            <span class="detail-label">Pronuncia (simplificada)</span>
+            <p id="detailPronunciation" class="detail-value detail-pronunciation">-</p>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Sinonimo</span>
+            <p id="detailSynonym" class="detail-value">-</p>
+            <p id="detailSynonymTranslation" class="detail-subvalue">-</p>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Antonimo</span>
+            <p id="detailAntonym" class="detail-value">-</p>
+            <p id="detailAntonymTranslation" class="detail-subvalue">-</p>
+          </div>
+          <div class="detail-card detail-card-wide">
+            <div class="detail-label-row">
+              <span class="detail-label">Exemplo de uso 1</span>
+              <button id="detailExample1Audio" class="detail-audio-btn" type="button" title="Ouvir exemplo" aria-label="Ouvir exemplo">🔊</button>
+            </div>
+            <p id="detailExample1" class="detail-value">-</p>
+            <p id="detailExample1Translation" class="detail-subvalue">-</p>
+          </div>
+          <div class="detail-card detail-card-wide">
+            <div class="detail-label-row">
+              <span class="detail-label">Exemplo de uso 2</span>
+              <button id="detailExample2Audio" class="detail-audio-btn" type="button" title="Ouvir exemplo" aria-label="Ouvir exemplo">🔊</button>
+            </div>
+            <p id="detailExample2" class="detail-value">-</p>
+            <p id="detailExample2Translation" class="detail-subvalue">-</p>
+          </div>
+          <div class="detail-card detail-card-wide">
+            <div class="detail-label-row">
+              <span class="detail-label">Exemplo no passado</span>
+              <button id="detailPastAudio" class="detail-audio-btn" type="button" title="Ouvir exemplo" aria-label="Ouvir exemplo">🔊</button>
+            </div>
+            <p id="detailPast" class="detail-value">-</p>
+            <p id="detailPastTranslation" class="detail-subvalue">-</p>
+          </div>
+          <div class="detail-card detail-card-wide">
+            <div class="detail-label-row">
+              <span class="detail-label">Exemplo no futuro</span>
+              <button id="detailFutureAudio" class="detail-audio-btn" type="button" title="Ouvir exemplo" aria-label="Ouvir exemplo">🔊</button>
+            </div>
+            <p id="detailFuture" class="detail-value">-</p>
+            <p id="detailFutureTranslation" class="detail-subvalue">-</p>
+          </div>
+        </div>
+      </section>
+
+      <p id="status" class="status"></p>
+
+      <nav class="tab-switcher" aria-label="Abas" role="tablist">
+        <div
+          id="tabTranslatorBtn"
+          class="tab-switch-btn active"
+          role="tab"
+          aria-selected="true"
+          tabindex="0"
+          title="Aba Tradutor"
+        >
+          <span class="tab-glyph" aria-hidden="true">▦</span>
+          <span>Tradutor</span>
+        </div>
+        <div
+          id="tabDetailsBtn"
+          class="tab-switch-btn"
+          role="tab"
+          aria-selected="false"
+          tabindex="0"
+          title="Aba Detalhes"
+        >
+          <span class="tab-glyph" aria-hidden="true">▦</span>
+          <span>Detalhes</span>
+        </div>
+      </nav>
+    </main>
+
+    <script src="./popup.js"></script>
+  </body>
+</html>
