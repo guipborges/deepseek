@@ -33,7 +33,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["src/shared/utils.js", "src/shared/language.js", "src/content.js"],
+      "js": ["src/shared/utils.js", "src/shared/language.js", "src/content/selection.js", "src/content/bubble.js", "src/content.js"],
       "run_at": "document_idle"
     }
   ]

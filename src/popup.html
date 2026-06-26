@@ -20,7 +20,18 @@
           <button id="voicePickerBtn" class="icon-btn" type="button" title="Voz automática" aria-label="Voz automática">🎤</button>
           <button id="openSettingsBtn" class="icon-btn" type="button" title="Configurações">⚙️</button>
         </div>
-        <div id="voiceControlPanel" class="voice-control-panel hidden">
+      </header>
+
+      <section id="accountPanel" class="account-panel hidden" aria-label="Conta">
+        <div class="account-actions">
+          <div id="usageRing" class="usage-ring hidden" role="meter" aria-label="Uso mensal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span id="usageRingText">0%</span>
+          </div>
+          <button id="upgradeBtn" class="secondary-btn" type="button">Plano anual</button>
+        </div>
+      </section>
+
+      <div id="voiceControlPanel" class="voice-control-panel hidden">
           <div class="voice-inline-row">
             <select id="voiceSelect">
               <option value="auto">Auto (melhor disponivel)</option>
@@ -59,19 +70,6 @@
           <button id="requestMagicLinkBtn" type="button">Sign in with email</button>
           <button id="saveOnboardingBtn" class="hidden" type="button">Validar e entrar</button>
           <button id="openOnboardingSettingsBtn" class="secondary-btn" type="button">Configurações</button>
-        </div>
-      </section>
-
-      <section id="accountPanel" class="account-panel hidden" aria-label="Conta">
-        <div>
-          <strong id="accountPlanText">Trial</strong>
-          <span id="accountUsageText">0 usados</span>
-        </div>
-        <div class="account-actions">
-          <div id="usageRing" class="usage-ring hidden" role="meter" aria-label="Uso mensal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-            <span id="usageRingText">0%</span>
-          </div>
-          <button id="upgradeBtn" class="secondary-btn" type="button">Plano anual</button>
         </div>
       </section>
 

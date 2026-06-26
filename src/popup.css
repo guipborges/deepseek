@@ -38,9 +38,9 @@ body[data-theme="dark"] {
 
 .app {
   width: 340px;
-  max-height: 520px;
+  max-height: 540px;
   overflow: hidden;
-  padding: 12px;
+  padding: 10px 12px 8px;
   background: var(--panel);
   border: 1px solid var(--line);
   display: flex;
@@ -67,11 +67,10 @@ h1 {
 
 .topbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 .topbar h1 {
@@ -82,8 +81,25 @@ h1 {
 .top-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-left: auto;
+  gap: 4px;
+}
+
+.account-panel {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 6px;
+  min-height: 0;
+}
+
+.account-panel .account-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.account-panel span {
+  color: var(--muted);
 }
 
 #voicePickerBtn.icon-btn {
@@ -114,30 +130,31 @@ h1 {
 }
 
 .mini-select {
-  width: 64px;
-  min-width: 64px;
-  max-width: 64px;
-  padding: 5px 6px;
-  font-size: 12px;
-  border-radius: 7px;
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
+  padding: 5px 5px;
+  font-size: 11px;
+  border-radius: 6px;
 }
 
 .top-controls .mini-select {
-  width: 64px;
-  min-width: 64px;
-  max-width: 64px;
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
 }
 
 .icon-btn {
   width: auto;
-  min-width: 30px;
-  padding: 6px 7px;
-  border-radius: 8px;
+  min-width: 28px;
+  padding: 5px 6px;
+  border-radius: 6px;
   background: #0b63f3;
   color: #fff;
   border: none;
   cursor: pointer;
   line-height: 1;
+  font-size: 12px;
 }
 
 #openSettingsBtn.icon-btn {
@@ -151,13 +168,13 @@ h1 {
 
 label {
   display: block;
-  margin: 8px 0 4px;
+  margin: 6px 0 3px;
   font-size: 12px;
   color: var(--muted);
 }
 
 .input-header-row {
-  margin: 8px 0 4px;
+  margin: 6px 0 3px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -299,14 +316,14 @@ textarea {
 
 .account-panel {
   margin: 0 0 8px;
-  padding: 8px;
+  padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: color-mix(in srgb, var(--panel) 92%, var(--bg));
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
+  min-height: 0;
 }
 
 .account-panel strong,
@@ -329,39 +346,41 @@ textarea {
 
 .usage-ring {
   --usage: 0%;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle closest-side, var(--panel) 67%, transparent 69%),
+    radial-gradient(circle closest-side, var(--panel) 64%, transparent 66%),
     conic-gradient(#18a05f var(--usage), color-mix(in srgb, var(--line) 82%, var(--panel)) 0);
   color: var(--text);
   flex: 0 0 auto;
 }
 
 .usage-ring span {
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1;
   font-weight: 700;
   color: inherit;
 }
 
 #upgradeBtn {
-  min-width: 92px;
-  padding: 6px 8px;
-  font-size: 11px;
+  min-width: auto;
+  padding: 4px 7px;
+  font-size: 10px;
 }
 
 #upgradeBtn.pro-badge {
-  min-width: 48px;
+  min-width: 34px;
+  padding: 3px 6px;
   border-color: color-mix(in srgb, #18a05f 45%, var(--line));
   background: color-mix(in srgb, #18a05f 16%, var(--panel));
   color: #117044;
   font-weight: 700;
   letter-spacing: 0;
   cursor: default;
+  font-size: 10px;
 }
 
 body[data-theme="dark"] #upgradeBtn.pro-badge {
@@ -427,7 +446,7 @@ body[data-theme="dark"] #upgradeBtn.pro-badge {
 }
 
 .buttons {
-  margin-top: 8px;
+  margin-top: 6px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
@@ -438,7 +457,7 @@ body[data-theme="dark"] #upgradeBtn.pro-badge {
 }
 
 .result-actions {
-  margin-top: 8px;
+  margin-top: 6px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;

@@ -670,99 +670,6 @@ function listenThemeChanges() {
   });
 }
 
-function normalizeWord(text) {
-  return (text || "").trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
-}
-
-function normalizeTerm(text) {
-  return (text || "").trim().replace(/\s+/g, " ");
-}
-
-function normalizeTranslatedText(text) {
-  const raw = (text || "").trim();
-  if (!raw) {
-    return "";
-  }
-
-  const lines = raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (!lines.length) {
-    return raw;
-  }
-
-  const firstLine = lines[0].toLowerCase();
-  const looksLikePreamble =
-    firstLine.startsWith("translating ") ||
-    (firstLine.startsWith("translation") && firstLine.includes("from") && firstLine.includes("to"));
-
-  if (looksLikePreamble && lines.length > 1) {
-    return lines.slice(1).join("\n").trim();
-  }
-
-  return raw;
-}
-
-function splitTermWords(text) {
-  return normalizeTerm(text)
-    .split(" ")
-    .map((part) => part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
-    .filter(Boolean);
-}
-
-function isSingleWord(text) {
-  const cleaned = normalizeWord(text);
-  if (!cleaned) {
-    return false;
-  }
-
-  if (/\s/u.test(cleaned)) {
-    return false;
-  }
-
-  return /[\p{L}\p{N}]/u.test(cleaned);
-}
-
-function isPhrasalVerbLike(text) {
-  const words = splitTermWords(text);
-  if (words.length < 2 || words.length > 3) {
-    return false;
-  }
-
-  const particles = new Set([
-    "up",
-    "down",
-    "off",
-    "on",
-    "in",
-    "out",
-    "away",
-    "back",
-    "over",
-    "through",
-    "along",
-    "around",
-    "about",
-    "across",
-    "after",
-    "apart",
-    "with"
-  ]);
-
-  const firstWordLooksValid = /^[\p{L}][\p{L}'-]*$/u.test(words[0]);
-  if (!firstWordLooksValid) {
-    return false;
-  }
-
-  return words.slice(1).some((word) => particles.has(word.toLowerCase()));
-}
-
-function isAdvancedTerm(text) {
-  return isSingleWord(text) || isPhrasalVerbLike(text);
-}
-
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.style.color = isError ? "#b00020" : "#586a86";
@@ -1155,13 +1062,6 @@ function updateAccountPanel(user = null) {
     return;
   }
 
-  if (accountPlanText) {
-    accountPlanText.textContent = getAccountPlanLabel(user.plan);
-  }
-  if (accountUsageText) {
-    accountUsageText.textContent = formatAccountUsage(user);
-  }
-
   updateUsageRing(user);
 
   if (upgradeBtn) {
@@ -1244,7 +1144,7 @@ async function saveOnboardingSettings() {
       sourceLanguage: currentSettings.sourceLanguage || "auto",
       targetLanguage,
       popupWidth: currentSettings.popupWidth || 340,
-      popupHeight: currentSettings.popupHeight || 520,
+      popupHeight: currentSettings.popupHeight || 540,
       themeMode: currentSettings.themeMode || "light",
       appLanguage: currentSettings.appLanguage || currentUiLanguage || "pt-BR",
       popupOpenTrigger: currentSettings.popupOpenTrigger || "t-click",
@@ -1306,7 +1206,7 @@ async function resetToDefaultSize() {
   const updated = {
     ...currentSettings,
     popupWidth: 340,
-    popupHeight: 520
+    popupHeight: 540
   };
 
   await storageSet(SETTINGS_KEY, updated);
@@ -1336,7 +1236,7 @@ function isPinnedMode() {
 async function openPinnedWindow() {
   const settings = (await storageGet(SETTINGS_KEY)) || {};
   const popupWidth = clampNumber(settings.popupWidth, 280, 780, 340);
-  const popupHeight = clampNumber(settings.popupHeight, 260, 780, 520);
+  const popupHeight = clampNumber(settings.popupHeight, 260, 780, 540);
   const width = Math.max(420, popupWidth + 40);
   const height = Math.max(560, popupHeight + 120);
   const url = chrome.runtime.getURL("src/popup.html?pinned=1");
@@ -1347,123 +1247,6 @@ async function openPinnedWindow() {
     width,
     height
   });
-}
-
-function mapLanguageToSpeechLanguage(language) {
-  const code = (language || "").toLowerCase();
-
-  if (code === "auto") {
-    return "en-US";
-  }
-
-  if (code.startsWith("pt")) {
-    return "pt-BR";
-  }
-
-  if (code.startsWith("en")) {
-    return "en-US";
-  }
-
-  if (code.startsWith("es")) {
-    return "es-ES";
-  }
-
-  if (code.startsWith("fr")) {
-    return "fr-FR";
-  }
-
-  if (code.startsWith("de")) {
-    return "de-DE";
-  }
-
-  if (code.startsWith("it")) {
-    return "it-IT";
-  }
-
-  if (code.startsWith("nl")) {
-    return "nl-NL";
-  }
-
-  if (code.startsWith("ru")) {
-    return "ru-RU";
-  }
-
-  return "en-US";
-}
-
-function getLanguageDisplayName(languageCode) {
-  const code = (languageCode || "").toLowerCase();
-
-  if (code.startsWith("de")) {
-    return "Alemao";
-  }
-
-  if (code.startsWith("en")) {
-    return "Ingles";
-  }
-
-  if (code.startsWith("pt")) {
-    return "Portugues";
-  }
-
-  if (code.startsWith("es")) {
-    return "Espanhol";
-  }
-
-  if (code.startsWith("fr")) {
-    return "Frances";
-  }
-
-  if (code.startsWith("it")) {
-    return "Italiano";
-  }
-
-  if (code.startsWith("nl")) {
-    return "Holandes";
-  }
-
-  if (code.startsWith("ru")) {
-    return "Russo";
-  }
-
-  return languageCode || "Desconhecido";
-}
-
-function getVoicesAsync() {
-  return new Promise((resolve) => {
-    const voicesNow = window.speechSynthesis.getVoices();
-    if (voicesNow.length) {
-      resolve(voicesNow);
-      return;
-    }
-
-    const onVoicesChanged = () => {
-      const loaded = window.speechSynthesis.getVoices();
-      if (loaded.length) {
-        window.speechSynthesis.removeEventListener("voiceschanged", onVoicesChanged);
-        resolve(loaded);
-      }
-    };
-
-    window.speechSynthesis.addEventListener("voiceschanged", onVoicesChanged);
-
-    setTimeout(() => {
-      window.speechSynthesis.removeEventListener("voiceschanged", onVoicesChanged);
-      resolve(window.speechSynthesis.getVoices());
-    }, 800);
-  });
-}
-
-function getPrimaryLanguageCode(code) {
-  return (code || "").toLowerCase().split("-")[0];
-}
-
-function isVoiceCompatibleWithLanguage(voice, speechLanguage) {
-  if (!voice?.lang || !speechLanguage) {
-    return false;
-  }
-
-  return getPrimaryLanguageCode(voice.lang) === getPrimaryLanguageCode(speechLanguage);
 }
 
 async function populateVoiceSelect() {
@@ -1506,72 +1289,6 @@ async function updateSelectedVoice() {
   await storageSet(SETTINGS_KEY, updated);
   updateVoicePickerState();
   setStatus(tl("Voz atualizada.", "Voice updated.", "Stimme aktualisiert."));
-}
-
-function detectLanguageCandidates(text) {
-  return new Promise((resolve) => {
-    if (!chrome?.i18n?.detectLanguage || !text) {
-      resolve([]);
-      return;
-    }
-
-    chrome.i18n.detectLanguage(text, (result) => {
-      if (chrome.runtime.lastError || !result?.languages?.length) {
-        resolve([]);
-        return;
-      }
-
-      resolve(result.languages);
-    });
-  });
-}
-
-function pickDetectedLanguage(candidates, text) {
-  if (!Array.isArray(candidates) || !candidates.length) {
-    return null;
-  }
-
-  const filtered = candidates.filter((item) => item?.language && item.language !== "und");
-  if (!filtered.length) {
-    return null;
-  }
-
-  const best = filtered[0];
-  const normalized = normalizeWord(text).toLowerCase();
-  const isAsciiWord = /^[a-z][a-z'-]*$/.test(normalized);
-
-  // For short ASCII words, prefer English when it is close in confidence.
-  if (isAsciiWord && normalized.length <= 10) {
-    const englishCandidate = filtered.find((item) => getPrimaryLanguageCode(item.language) === "en");
-    const bestConfidence = typeof best.percentage === "number" ? best.percentage : 0;
-    const englishConfidence =
-      englishCandidate && typeof englishCandidate.percentage === "number" ? englishCandidate.percentage : 0;
-
-    if (
-      englishCandidate &&
-      getPrimaryLanguageCode(best.language) !== "en" &&
-      bestConfidence - englishConfidence <= 12
-    ) {
-      return englishCandidate.language;
-    }
-  }
-
-  return best.language;
-}
-
-async function detectSpeechLanguage(text, fallbackLanguage) {
-  const normalizedFallback = (fallbackLanguage || "").trim().toLowerCase();
-  if (normalizedFallback && normalizedFallback !== "auto") {
-    return mapLanguageToSpeechLanguage(fallbackLanguage);
-  }
-
-  const candidates = await detectLanguageCandidates(text);
-  const detected = pickDetectedLanguage(candidates, text);
-  if (detected && detected !== "und") {
-    return mapLanguageToSpeechLanguage(detected);
-  }
-
-  return mapLanguageToSpeechLanguage(fallbackLanguage);
 }
 
 function toDictionaryLanguageCode(language) {
@@ -1777,34 +1494,25 @@ async function fetchDictionaryAudioUrl(word, languageCode) {
 }
 
 async function pronounceCurrentWord() {
-  const text = normalizeWord(inputText.value);
+  const text = normalizeTerm(inputText.value);
   if (!text) {
-    setStatus(tl("Informe uma palavra para pronunciar.", "Enter a word to pronounce.", "Geben Sie ein Wort zur Aussprache ein."), true);
+    setStatus(tl("Informe um texto para pronunciar.", "Enter text to pronounce.", "Geben Sie einen Text zur Aussprache ein."), true);
     return;
   }
 
-  if (!isSingleWord(text)) {
-    setStatus(tl("Pronuncia disponivel apenas para uma palavra.", "Pronunciation is available only for one word.", "Aussprache ist nur fuer ein einzelnes Wort verfuegbar."), true);
-    return;
-  }
-
-  const language = await resolvePronunciationLanguage(text);
+  const language = await resolvePronunciationLanguage(normalizeWord(text) || text);
   await speakWord(text, language.speechLanguage, language.displayName);
 }
 
 async function playNativeDictionaryAudio() {
-  const word = normalizeWord(inputText.value);
-  if (!word) {
-    setStatus(tl("Informe uma palavra para audio nativo.", "Enter a word for native audio.", "Geben Sie ein Wort fuer natives Audio ein."), true);
+  const text = normalizeTerm(inputText.value);
+  if (!text) {
+    setStatus(tl("Informe um texto para audio nativo.", "Enter text for native audio.", "Geben Sie einen Text fuer natives Audio ein."), true);
     return;
   }
 
-  if (!isSingleWord(word)) {
-    setStatus(tl("Audio nativo disponivel apenas para uma palavra.", "Native audio is available only for one word.", "Natives Audio ist nur fuer ein einzelnes Wort verfuegbar."), true);
-    return;
-  }
-
-  const language = await resolvePronunciationLanguage(word);
+  const firstWord = normalizeWord(text);
+  const language = await resolvePronunciationLanguage(firstWord || text);
   const dictionaryCode = language.dictionaryLanguageCode;
 
   setStatus(
@@ -1814,7 +1522,7 @@ async function playNativeDictionaryAudio() {
       `Natives Audio wird gesucht in ${language.displayName} (${dictionaryCode})...`
     )
   );
-  const audioUrl = await fetchDictionaryAudioUrl(word, dictionaryCode);
+  const audioUrl = await fetchDictionaryAudioUrl(firstWord || text, dictionaryCode);
 
   if (!audioUrl) {
     setStatus(
@@ -1824,7 +1532,7 @@ async function playNativeDictionaryAudio() {
         `Kein natives Audio in ${language.displayName}. Lokale Aussprache wird verwendet...`
       )
     );
-    await speakWord(word, language.speechLanguage, language.displayName);
+    await speakWord(firstWord || text, language.speechLanguage, language.displayName);
     return;
   }
 
@@ -1906,7 +1614,7 @@ async function openForvo() {
 async function applyPopupSizeFromSettings() {
   const settings = (await storageGet(SETTINGS_KEY)) || {};
   const popupWidth = clampNumber(settings.popupWidth, 280, 780, 340);
-  const popupHeight = clampNumber(settings.popupHeight, 260, 780, 520);
+  const popupHeight = clampNumber(settings.popupHeight, 260, 780, 540);
 
   const appEl = document.querySelector(".app");
   if (isPinnedMode()) {
