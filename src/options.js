@@ -1,9 +1,9 @@
 const SETTINGS_KEY = "deepseekTranslatorSettings";
 
-const backendApiUrlInput = document.getElementById("backendApiUrl");
-const checkoutUrlInput = document.getElementById("checkoutUrl");
 const accountStatusText = document.getElementById("accountStatusText");
 const accountUsageText = document.getElementById("accountUsageText");
+const usageRing = document.getElementById("usageRing");
+const usageRingText = document.getElementById("usageRingText");
 const logoutBtn = document.getElementById("logoutBtn");
 const targetLanguageInput = document.getElementById("targetLanguage");
 const popupWidthInput = document.getElementById("popupWidth");
@@ -15,20 +15,20 @@ const openOnDoubleClickInput = document.getElementById("openOnDoubleClick");
 const saveBtn = document.getElementById("saveBtn");
 const statusEl = document.getElementById("status");
 
-let currentUiLanguage = "pt-BR";
+const TRANSLATION_LANGUAGES = LANGUAGE_CATALOG.map(({ value, label }) => ({ value, label }));
+let currentUiLanguage = FALLBACK_APP_LANGUAGE;
 
 const UI_TEXTS = {
   pt: {
-    pageTitle: "Configuracoes - DeepSeek Translator",
+    pageTitle: "Configuracoes - Ayvu Translator",
     title: "Configuracoes",
-    backendApiUrl: "URL da API",
-    checkoutUrl: "Link de checkout",
     accountDisconnected: "Conta nao conectada",
     accountDisconnectedHelp: "Entre pelo popup para ativar o trial.",
     accountTrial: "Trial ativo",
     accountPro: "Plano anual ativo",
     accountExpired: "Trial encerrado",
-    accountUsage: "{used}/{limit} tokens este mes",
+    accountUsage: "{percent}% usado este mes",
+    accountUsageTitle: "{used}/{limit} tokens este mes",
     logout: "Sair",
     targetLanguage: "Idioma de destino",
     popupWidth: "Largura do popup (px)",
@@ -47,16 +47,15 @@ const UI_TEXTS = {
     loadFailed: "Falha ao carregar: "
   },
   en: {
-    pageTitle: "Settings - DeepSeek Translator",
+    pageTitle: "Settings - Ayvu Translator",
     title: "Settings",
-    backendApiUrl: "API URL",
-    checkoutUrl: "Checkout link",
     accountDisconnected: "Account not connected",
     accountDisconnectedHelp: "Sign in from the popup to start the trial.",
     accountTrial: "Trial active",
     accountPro: "Annual plan active",
     accountExpired: "Trial ended",
-    accountUsage: "{used}/{limit} tokens this month",
+    accountUsage: "{percent}% used this month",
+    accountUsageTitle: "{used}/{limit} tokens this month",
     logout: "Sign out",
     targetLanguage: "Target language",
     popupWidth: "Popup width (px)",
@@ -75,16 +74,15 @@ const UI_TEXTS = {
     loadFailed: "Failed to load: "
   },
   de: {
-    pageTitle: "Einstellungen - DeepSeek Translator",
+    pageTitle: "Einstellungen - Ayvu Translator",
     title: "Einstellungen",
-    backendApiUrl: "API-URL",
-    checkoutUrl: "Checkout-Link",
     accountDisconnected: "Konto nicht verbunden",
     accountDisconnectedHelp: "Melden Sie sich im Popup an, um die Testphase zu starten.",
     accountTrial: "Testphase aktiv",
     accountPro: "Jahresplan aktiv",
     accountExpired: "Testphase beendet",
-    accountUsage: "{used}/{limit} Tokens diesen Monat",
+    accountUsage: "{percent}% diesen Monat genutzt",
+    accountUsageTitle: "{used}/{limit} Tokens diesen Monat",
     logout: "Abmelden",
     targetLanguage: "Zielsprache",
     popupWidth: "Popup-Breite (px)",
@@ -104,12 +102,6 @@ const UI_TEXTS = {
   }
 };
 
-function getUiLanguageCode(language) {
-  const code = (language || "pt-BR").toLowerCase();
-  if (code.startsWith("pt")) return "pt";
-  if (code.startsWith("de")) return "de";
-  return "en";
-}
 
 function t(key) {
   const ui = UI_TEXTS[getUiLanguageCode(currentUiLanguage)] || UI_TEXTS.pt;
@@ -124,6 +116,23 @@ function updateTextNodeForLabel(label, text) {
   label.appendChild(document.createTextNode(` ${text}`));
 }
 
+
+function populateTargetLanguageSelect() {
+  const current = targetLanguageInput.value;
+  targetLanguageInput.innerHTML = "";
+
+  for (const language of TRANSLATION_LANGUAGES) {
+    const option = document.createElement("option");
+    option.value = language.value;
+    option.textContent = language.label;
+    targetLanguageInput.appendChild(option);
+  }
+
+  if (current) {
+    targetLanguageInput.value = current;
+  }
+}
+
 function updateOptionsLabels() {
   document.documentElement.lang = currentUiLanguage;
   document.title = t("pageTitle");
@@ -132,8 +141,6 @@ function updateOptionsLabels() {
   if (titleEl) titleEl.textContent = t("title");
 
   const labels = {
-    backendApiUrl: document.querySelector('label[for="backendApiUrl"]'),
-    checkoutUrl: document.querySelector('label[for="checkoutUrl"]'),
     targetLanguage: document.querySelector('label[for="targetLanguage"]'),
     popupWidth: document.querySelector('label[for="popupWidth"]'),
     popupHeight: document.querySelector('label[for="popupHeight"]'),
@@ -141,8 +148,6 @@ function updateOptionsLabels() {
     appLanguage: document.querySelector('label[for="appLanguage"]')
   };
 
-  if (labels.backendApiUrl) labels.backendApiUrl.textContent = t("backendApiUrl");
-  if (labels.checkoutUrl) labels.checkoutUrl.textContent = t("checkoutUrl");
   if (labels.targetLanguage) labels.targetLanguage.textContent = t("targetLanguage");
   if (labels.popupWidth) labels.popupWidth.textContent = t("popupWidth");
   if (labels.popupHeight) labels.popupHeight.textContent = t("popupHeight");
@@ -205,11 +210,34 @@ function getPlanLabel(plan) {
   return t("accountTrial");
 }
 
+function getAccountUsageStats(user) {
+  const used = Number(user?.usage?.total_tokens || 0);
+  const limit = Number(user?.limits?.monthlyTokens || 0);
+  const exactPercent = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  const percent = exactPercent >= 1 ? Math.floor(exactPercent) : 0;
+  const percentLabel = exactPercent > 0 && exactPercent < 1 ? "<1" : String(percent);
+  return { used, limit, percent, percentLabel };
+}
+
+function formatAccountUsage(user) {
+  const { percentLabel } = getAccountUsageStats(user);
+  return t("accountUsage").replace("{percent}", percentLabel);
+}
+
+function formatAccountUsageTitle(user) {
+  const { used, limit } = getAccountUsageStats(user);
+  if (!limit) {
+    return t("accountUsageTitle").replace("{used}", String(used)).replace("{limit}", "-");
+  }
+  return t("accountUsageTitle").replace("{used}", String(used)).replace("{limit}", String(limit));
+}
+
 async function refreshAccountBox() {
   const session = await getCurrentSession();
   if (!session?.accessToken) {
     accountStatusText.textContent = t("accountDisconnected");
     accountUsageText.textContent = t("accountDisconnectedHelp");
+    usageRing?.classList.add("hidden");
     logoutBtn.disabled = true;
     return;
   }
@@ -218,32 +246,43 @@ async function refreshAccountBox() {
   try {
     const account = await getBackendAccount();
     const user = account.user || {};
-    const used = Number(user?.usage?.monthlyTokens || 0);
-    const limit = Number(user?.limits?.monthlyTokens || 0) || "-";
+    const stats = getAccountUsageStats(user);
+    const usageTitle = formatAccountUsageTitle(user);
     accountStatusText.textContent = `${getPlanLabel(user.plan)} - ${user.email || session.email || ""}`.trim();
-    accountUsageText.textContent = t("accountUsage").replace("{used}", String(used)).replace("{limit}", String(limit));
+    accountUsageText.textContent = formatAccountUsage(user);
+    accountUsageText.title = usageTitle;
+    if (usageRing) {
+      usageRing.classList.remove("hidden");
+      usageRing.style.setProperty("--usage", `${stats.percent}%`);
+      usageRing.title = usageTitle;
+      usageRing.setAttribute("aria-label", usageTitle);
+      usageRing.setAttribute("aria-valuenow", String(stats.percent));
+    }
+    if (usageRingText) {
+      usageRingText.textContent = `${stats.percentLabel}%`;
+    }
   } catch (_error) {
     accountStatusText.textContent = t("accountDisconnected");
     accountUsageText.textContent = t("accountDisconnectedHelp");
+    usageRing?.classList.add("hidden");
   }
 }
 
 async function loadSettings() {
   const data = (await storageGet(SETTINGS_KEY)) || {};
-  const backendConfig = await getBackendConfig();
-
-  // Backend URLs are now hardcoded and read-only
-  backendApiUrlInput.value = backendConfig.apiBaseUrl || "";
-  backendApiUrlInput.disabled = true;
-  checkoutUrlInput.value = backendConfig.checkoutUrl || "";
-  checkoutUrlInput.disabled = true;
+  const defaultTargetLanguage = getDefaultTargetLanguage();
+  const defaultAppLanguage = getDefaultAppLanguage();
   
-  targetLanguageInput.value = data.targetLanguage || "pt-BR";
+  populateTargetLanguageSelect();
+  targetLanguageInput.value = data.targetLanguage || defaultTargetLanguage;
+  if (targetLanguageInput.value !== (data.targetLanguage || defaultTargetLanguage)) {
+    targetLanguageInput.value = defaultTargetLanguage;
+  }
   popupWidthInput.value = data.popupWidth || 340;
   popupHeightInput.value = data.popupHeight || 520;
   themeModeSelect.value = data.themeMode || "light";
-  appLanguageSelect.value = data.appLanguage || "pt-BR";
-  if (appLanguageSelect.value !== (data.appLanguage || "pt-BR")) appLanguageSelect.value = "pt-BR";
+  appLanguageSelect.value = data.appLanguage || defaultAppLanguage;
+  if (appLanguageSelect.value !== (data.appLanguage || defaultAppLanguage)) appLanguageSelect.value = defaultAppLanguage;
   if (themeModeSelect.value !== (data.themeMode || "light")) themeModeSelect.value = "light";
 
   const popupOpenTrigger = resolvePopupOpenTrigger(data);
@@ -262,11 +301,11 @@ async function saveSettings() {
   const payload = {
     ...current,
     sourceLanguage: current.sourceLanguage || "auto",
-    targetLanguage: targetLanguageInput.value.trim() || "pt-BR",
+    targetLanguage: targetLanguageInput.value || getDefaultTargetLanguage(),
     popupWidth: clampNumber(popupWidthInput.value, 280, 780, 340),
     popupHeight: clampNumber(popupHeightInput.value, 260, 780, 520),
     themeMode: themeModeSelect.value || "light",
-    appLanguage: appLanguageSelect.value || "pt-BR",
+    appLanguage: appLanguageSelect.value || getDefaultAppLanguage(),
     popupOpenTrigger,
     openMainWindowOnDoubleClick: popupOpenTrigger === "double-click"
   };
@@ -274,7 +313,6 @@ async function saveSettings() {
   delete payload.apiKey;
   delete payload.model;
 
-  // Backend URLs are hardcoded and not editable
   await storageSet(payload);
   currentUiLanguage = payload.appLanguage;
   updateOptionsLabels();
@@ -299,12 +337,13 @@ themeModeSelect.addEventListener("change", () => {
 });
 
 appLanguageSelect.addEventListener("change", () => {
-  currentUiLanguage = appLanguageSelect.value || "pt-BR";
+  currentUiLanguage = appLanguageSelect.value || getDefaultAppLanguage();
   updateOptionsLabels();
   refreshAccountBox().catch(() => {});
 });
 
-currentUiLanguage = appLanguageSelect.value || "pt-BR";
+populateTargetLanguageSelect();
+currentUiLanguage = appLanguageSelect.value || getDefaultAppLanguage();
 updateOptionsLabels();
 
 loadSettings().catch((error) => {

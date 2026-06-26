@@ -1,4 +1,4 @@
-# DeepSeek Chrome Translator
+# Ayvu Translator
 
 Chrome extension to translate selected text with DeepSeek API, with flashcards, pronunciation, and YouGlish integration.
 

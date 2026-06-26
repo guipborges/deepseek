@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Ayvu - Language Learning",
+  "name": "Ayvu Translator",
   "description": "Translate selected text, save flashcards, and practice pronunciation.",
   "version": "1.0.9",
   "permissions": ["storage", "windows"],
@@ -19,7 +19,7 @@
     "128": "assets/icons/icon128.png"
   },
   "action": {
-    "default_title": "Ayvu",
+    "default_title": "Ayvu Translator",
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "32": "assets/icons/icon32.png",
@@ -33,7 +33,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["src/content.js"],
+      "js": ["src/shared/utils.js", "src/shared/language.js", "src/content.js"],
       "run_at": "document_idle"
     }
   ]

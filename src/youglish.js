@@ -14,16 +14,7 @@ function storageGet(key) {
   });
 }
 
-function getUiLanguageCode(language) {
-  const code = (language || "pt-BR").toLowerCase();
-  if (code.startsWith("en")) {
-    return "en";
-  }
-  if (code.startsWith("de")) {
-    return "de";
-  }
-  return "pt";
-}
+
 
 const UI_TEXTS = {
   pt: {
@@ -47,8 +38,8 @@ const UI_TEXTS = {
 };
 
 function t(language, key) {
-  const ui = UI_TEXTS[getUiLanguageCode(language)] || UI_TEXTS.pt;
-  return ui[key] || UI_TEXTS.pt[key] || key;
+  const ui = UI_TEXTS[getUiLanguageCode(language)] || UI_TEXTS.en;
+  return ui[key] || UI_TEXTS.en[key] || key;
 }
 
 const text = decodeURIComponent(getParam("text") || "");
@@ -64,7 +55,7 @@ const youglishUrl = `https://youglish.com/pronounce/${encodeURIComponent(safeTex
 
 async function init() {
   const settings = (await storageGet("deepseekTranslatorSettings")) || {};
-  const appLanguage = settings.appLanguage || "pt-BR";
+  const appLanguage = settings.appLanguage || getDefaultAppLanguage();
 
   document.documentElement.lang = appLanguage;
   document.title = t(appLanguage, "pageTitle");

@@ -1,62 +1,99 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flashcards - DeepSeek Translator</title>
+    <title>Flashcards - Ayvu Translator</title>
     <link rel="stylesheet" href="./flashcards.css" />
   </head>
   <body>
     <main class="app">
       <header class="header">
-        <h1 id="pageTitle">Flashcards</h1>
-        <p id="counter" class="counter">0 de 0</p>
+        <div class="header-search-wrap">
+          <input id="searchInput" type="search" placeholder="Buscar palavra ou tradução" autocomplete="off" />
+        </div>
+        <div class="header-meta">
+          <p id="counter" class="counter">0 de 0</p>
+          <button id="exportTopBtn" class="ghost-icon-btn" type="button" title="Export CSV" aria-label="Export CSV">
+            <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 4v10" />
+              <path d="M8 11l4 4 4-4" />
+              <path d="M4 18h16" />
+            </svg>
+          </button>
+        </div>
       </header>
 
-      <section class="toolbar" aria-label="Ferramentas de flashcards">
-        <input id="searchInput" type="search" placeholder="Buscar palavra ou tradução" autocomplete="off" />
-        <button id="exportCsvBtn" class="secondary-btn" type="button">Exportar CSV</button>
+      <nav id="sections" class="sections" aria-label="Decks"></nav>
+
+      <section class="study-stage" aria-label="Modo de estudo">
+        <div class="card-container">
+          <button id="card" class="card hidden" type="button" aria-live="polite">
+            <span class="card-face card-front">
+              <span id="frontLabel" class="label">Front</span>
+              <span id="frontText" class="text"></span>
+              <span class="flip-hint">Click to flip</span>
+            </span>
+
+            <span class="card-face card-back">
+              <span id="backLabel" class="label">Back</span>
+              <span id="backText" class="text"></span>
+              <span id="metaText" class="meta"></span>
+            </span>
+          </button>
+          <div id="emptyState" class="empty">
+            Nenhuma palavra salva ainda.
+          </div>
+        </div>
       </section>
 
-      <section id="sections" class="sections"></section>
-
-      <section id="emptyState" class="empty">
-        Nenhuma palavra salva ainda.
-      </section>
-
-      <section id="card" class="card hidden">
-        <p id="frontLabel" class="label">Frente</p>
-        <p id="frontText" class="text"></p>
-
-        <p id="backLabel" class="label">Verso</p>
-        <p id="backText" class="text"></p>
-
-        <p id="metaText" class="meta"></p>
-      </section>
-
-      <div class="buttons">
-        <button id="prevBtn" type="button">Anterior</button>
-        <button id="flipBtn" type="button">Virar</button>
-        <button id="nextBtn" type="button">Próximo</button>
-      </div>
-
-      <div class="buttons">
-        <button id="removeBtn" type="button">Remover atual</button>
-      </div>
-
-      <div class="buttons">
-        <button id="pronounceCardBtn" type="button">Pronunciar palavra</button>
-        <button id="youglishCardBtn" type="button">YouGlish</button>
-      </div>
-
-      <section class="danger-zone">
-        <p id="dangerText" class="danger-text">Zona de risco: esta ação remove todos os flashcards salvos.</p>
-        <button id="clearBtn" class="danger-ghost" type="button">Limpar toda a base</button>
-      </section>
+      <footer class="bottom-toolbar" aria-label="Flashcard actions">
+        <button id="prevBtn" class="icon-btn" type="button" title="Previous" aria-label="Previous">
+          <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <button id="pronounceCardBtn" class="icon-btn" type="button" title="Pronounce word" aria-label="Pronounce word">
+          <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 10v4" />
+            <path d="M8 10l5-4v12l-5-4z" />
+            <path d="M16 9a4 4 0 010 6" />
+            <path d="M18 7a7 7 0 010 10" />
+          </svg>
+        </button>
+        <button id="youglishCardBtn" class="icon-btn" type="button" title="YouGlish" aria-label="YouGlish">
+          <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M8 6l10 6-10 6z" />
+          </svg>
+        </button>
+        <button id="exportCardsBtn" class="icon-btn" type="button" title="Export CSV" aria-label="Export CSV">
+          <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 4v10" />
+            <path d="M8 11l4 4 4-4" />
+            <path d="M4 18h16" />
+          </svg>
+        </button>
+        <button id="removeBtn" class="icon-btn danger-action" type="button" title="Remove current" aria-label="Remove current">
+          <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 7h12" />
+            <path d="M9 7V5h6v2" />
+            <path d="M8 7l1 12h6l1-12" />
+            <path d="M10 11v5" />
+            <path d="M14 11v5" />
+          </svg>
+        </button>
+        <button id="nextBtn" class="icon-btn" type="button" title="Next" aria-label="Next">
+          <svg class="toolbar-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </button>
+      </footer>
 
       <p id="status" class="status"></p>
     </main>
 
+    <script src="./shared/utils.js"></script>
+    <script src="./shared/language.js"></script>
     <script src="./flashcards.js"></script>
   </body>
 </html>

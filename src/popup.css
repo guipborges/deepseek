@@ -320,10 +320,52 @@ textarea {
   color: var(--muted);
 }
 
+.account-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.usage-ring {
+  --usage: 0%;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle closest-side, var(--panel) 67%, transparent 69%),
+    conic-gradient(#18a05f var(--usage), color-mix(in srgb, var(--line) 82%, var(--panel)) 0);
+  color: var(--text);
+  flex: 0 0 auto;
+}
+
+.usage-ring span {
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  color: inherit;
+}
+
 #upgradeBtn {
   min-width: 92px;
   padding: 6px 8px;
   font-size: 11px;
+}
+
+#upgradeBtn.pro-badge {
+  min-width: 48px;
+  border-color: color-mix(in srgb, #18a05f 45%, var(--line));
+  background: color-mix(in srgb, #18a05f 16%, var(--panel));
+  color: #117044;
+  font-weight: 700;
+  letter-spacing: 0;
+  cursor: default;
+}
+
+body[data-theme="dark"] #upgradeBtn.pro-badge {
+  color: #75dda7;
 }
 
 .voice-settings-btn {
@@ -345,8 +387,12 @@ textarea {
   background: color-mix(in srgb, var(--primary) 28%, var(--panel));
 }
 
+.history-panel {
+  margin-top: 10px;
+}
+
 .history-tools {
-  margin-top: 6px;
+  margin-top: 0;
 }
 
 #historySearchInput {
@@ -410,6 +456,11 @@ button {
 
 button:hover {
   background: var(--primary-hover);
+}
+
+button:disabled {
+  opacity: 0.58;
+  cursor: wait;
 }
 
 .icon-btn:hover {

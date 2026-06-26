@@ -5,6 +5,7 @@ const BUBBLE_SOURCE_LANGUAGE_KEY = "deepseekTranslatorBubbleSourceLanguage";
 const SETTINGS_KEY = "deepseekTranslatorSettings";
 const FLOATING_Z_INDEX = "2147483647";
 const SENSITIVE_INPUT_TYPES = new Set(["password", "email", "tel", "number", "date", "datetime-local", "month", "time", "week"]);
+const TRANSLATION_LANGUAGES = LANGUAGE_CATALOG.map(({ value, short }) => ({ value, short }));
 
 function hasRuntimeMessaging() {
   return typeof chrome !== "undefined" && !!chrome.runtime && typeof chrome.runtime.sendMessage === "function";
@@ -14,77 +15,7 @@ function hasStorageLocal() {
   return typeof chrome !== "undefined" && !!chrome.storage && !!chrome.storage.local;
 }
 
-function mapLanguageToSpeechLanguage(language) {
-  const code = (language || "").toLowerCase();
 
-  if (code === "auto") {
-    return "en-US";
-  }
-
-  if (code.startsWith("pt")) {
-    return "pt-BR";
-  }
-
-  if (code.startsWith("en")) {
-    return "en-US";
-  }
-
-  if (code.startsWith("es")) {
-    return "es-ES";
-  }
-
-  if (code.startsWith("fr")) {
-    return "fr-FR";
-  }
-
-  if (code.startsWith("de")) {
-    return "de-DE";
-  }
-
-  if (code.startsWith("it")) {
-    return "it-IT";
-  }
-
-  if (code.startsWith("nl")) {
-    return "nl-NL";
-  }
-
-  if (code.startsWith("ru")) {
-    return "ru-RU";
-  }
-
-  return "en-US";
-}
-
-function getPrimaryLanguageCode(code) {
-  return (code || "").toLowerCase().split("-")[0];
-}
-
-function isVoiceCompatibleWithLanguage(voice, speechLanguage) {
-  if (!voice?.lang || !speechLanguage) {
-    return false;
-  }
-
-  return getPrimaryLanguageCode(voice.lang) === getPrimaryLanguageCode(speechLanguage);
-}
-
-function detectLanguageCandidates(text) {
-  return new Promise((resolve) => {
-    if (!chrome?.i18n?.detectLanguage || !text) {
-      resolve([]);
-      return;
-    }
-
-    chrome.i18n.detectLanguage(text, (result) => {
-      if (chrome.runtime.lastError || !result?.languages?.length) {
-        resolve([]);
-        return;
-      }
-
-      resolve(result.languages);
-    });
-  });
-}
 
 function pickDetectedLanguage(candidates, text) {
   if (!Array.isArray(candidates) || !candidates.length) {
@@ -118,19 +49,6 @@ function pickDetectedLanguage(candidates, text) {
   return best.language;
 }
 
-async function detectSpeechLanguage(text, fallbackLanguage) {
-  const normalizedFallback = (fallbackLanguage || "").trim().toLowerCase();
-  if (normalizedFallback && normalizedFallback !== "auto") {
-    return mapLanguageToSpeechLanguage(fallbackLanguage);
-  }
-
-  const candidates = await detectLanguageCandidates(text);
-  const detected = pickDetectedLanguage(candidates, text);
-  if (detected && detected !== "und") {
-    return mapLanguageToSpeechLanguage(detected);
-  }
-  return mapLanguageToSpeechLanguage(fallbackLanguage);
-}
 
 function getVoicesAsync() {
   return new Promise((resolve) => {
@@ -203,9 +121,6 @@ function storageSet(key, value) {
   });
 }
 
-function normalizeTerm(text) {
-  return (text || "").trim().replace(/\s+/g, " ");
-}
 
 function isEditableOrSensitiveElement(element) {
   if (!element || element.nodeType !== Node.ELEMENT_NODE) {
@@ -272,94 +187,11 @@ async function translateSelectionToBubble(anchorX, anchorY, sourceText) {
   }
 }
 
-function normalizeTranslatedText(text) {
-  const raw = (text || "").trim();
-  if (!raw) {
-    return "";
-  }
 
-  const lines = raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
 
-  if (!lines.length) {
-    return raw;
-  }
 
-  const firstLine = lines[0].toLowerCase();
-  const looksLikePreamble =
-    firstLine.startsWith("translating ") ||
-    (firstLine.startsWith("translation") && firstLine.includes("from") && firstLine.includes("to"));
 
-  if (looksLikePreamble && lines.length > 1) {
-    return lines.slice(1).join("\n").trim();
-  }
 
-  return raw;
-}
-
-function splitTermWords(text) {
-  return normalizeTerm(text)
-    .split(" ")
-    .map((part) => part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
-    .filter(Boolean);
-}
-
-function normalizeWord(text) {
-  return (text || "").trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
-}
-
-function isSingleWord(text) {
-  const cleaned = normalizeWord(text);
-  if (!cleaned) {
-    return false;
-  }
-
-  if (/\s/u.test(cleaned)) {
-    return false;
-  }
-
-  return /[\p{L}\p{N}]/u.test(cleaned);
-}
-
-function isPhrasalVerbLike(text) {
-  const words = splitTermWords(text);
-  if (words.length < 2 || words.length > 3) {
-    return false;
-  }
-
-  const particles = new Set([
-    "up",
-    "down",
-    "off",
-    "on",
-    "in",
-    "out",
-    "away",
-    "back",
-    "over",
-    "through",
-    "along",
-    "around",
-    "about",
-    "across",
-    "after",
-    "apart",
-    "with"
-  ]);
-
-  const firstWordLooksValid = /^[\p{L}][\p{L}'-]*$/u.test(words[0]);
-  if (!firstWordLooksValid) {
-    return false;
-  }
-
-  return words.slice(1).some((word) => particles.has(word.toLowerCase()));
-}
-
-function isAdvancedTerm(text) {
-  return isSingleWord(text) || isPhrasalVerbLike(text);
-}
 
 function getCurrentSelectedText() {
   if (shouldIgnoreSelection()) {
@@ -517,6 +349,13 @@ function createBubbleActionButton(label, background) {
   return button;
 }
 
+function setBubbleActionDisabled(button, disabled, title = "") {
+  button.disabled = disabled;
+  button.title = title;
+  button.style.opacity = disabled ? "0.45" : "1";
+  button.style.cursor = disabled ? "not-allowed" : "pointer";
+}
+
 function showBubbleAt(x, y, text, isError = false) {
   removeBubble();
 
@@ -586,14 +425,10 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
   sourceSelect.style.color = "#10213d";
   sourceSelect.style.minWidth = "64px";
 
-  const sourceOptions = [
-    { value: "auto", label: "Auto" },
-    { value: "en-US", label: "EN" },
-    { value: "de-DE", label: "DE" },
-    { value: "pt-BR", label: "PT" },
-    { value: "es-ES", label: "ES" },
-    { value: "fr-FR", label: "FR" }
-  ];
+  const sourceOptions = [{ value: "auto", label: "Auto" }, ...TRANSLATION_LANGUAGES.map((language) => ({
+    value: language.value,
+    label: language.short
+  }))];
 
   sourceOptions.forEach((item) => {
     const option = document.createElement("option");
@@ -618,17 +453,25 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
   statusEl.style.alignItems = "center";
 
   let selectedSourceLanguage = "auto";
-  let selectedTargetLanguage = "pt-BR";
+  let selectedTargetLanguage = getDefaultTargetLanguage();
 
   const formatLanguagePairLabel = () => {
     const source = sourceSelect.value || selectedSourceLanguage || "auto";
     const sourceCode = source === "auto" ? "AUTO" : source.slice(0, 2).toUpperCase();
-    const targetCode = (selectedTargetLanguage || "pt-BR").slice(0, 2).toUpperCase();
+    const targetCode = (selectedTargetLanguage || getDefaultTargetLanguage()).slice(0, 2).toUpperCase();
     return `${sourceCode}-${targetCode}`;
   };
 
   const updateFooterPairLabel = () => {
     statusEl.textContent = formatLanguagePairLabel();
+  };
+
+  const updateYouGlishButtonState = () => {
+    setBubbleActionDisabled(
+      youglishBtn,
+      !isYouGlishSupportedLanguage(selectedSourceLanguage, { allowAuto: true }),
+      "YouGlish nao aceita este idioma."
+    );
   };
 
   const sourceTerm = normalizeTerm(sourceText);
@@ -638,7 +481,7 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
     const savedBubbleSource = ((await storageGet(BUBBLE_SOURCE_LANGUAGE_KEY)) || "").trim();
     const settings = (await storageGet("deepseekTranslatorSettings")) || {};
     const currentSource = (savedBubbleSource || initialSourceLanguage || settings.sourceLanguage || "auto").trim();
-    selectedTargetLanguage = (settings.targetLanguage || "pt-BR").trim();
+    selectedTargetLanguage = (settings.targetLanguage || getDefaultTargetLanguage()).trim();
 
     sourceSelect.value = currentSource;
     if (sourceSelect.value !== currentSource) {
@@ -647,14 +490,8 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
 
     selectedSourceLanguage = sourceSelect.value || "auto";
     updateFooterPairLabel();
+    updateYouGlishButtonState();
   };
-
-  setInitialSourceLanguage().catch(() => {
-    sourceSelect.value = "auto";
-    selectedSourceLanguage = "auto";
-    selectedTargetLanguage = "pt-BR";
-    updateFooterPairLabel();
-  });
 
   saveBtn.addEventListener("click", async (event) => {
     event.preventDefault();
@@ -666,7 +503,9 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
       const response = await sendRuntimeMessage({
         type: "SAVE_FLASHCARD",
         sourceText: sourceTerm,
-        translatedText: textEl.textContent || translatedText
+        translatedText: textEl.textContent || translatedText,
+        sourceLanguage: selectedSourceLanguage,
+        targetLanguage: selectedTargetLanguage
       });
 
       if (!response?.ok) {
@@ -707,6 +546,11 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
     event.preventDefault();
     event.stopPropagation();
 
+    if (!isYouGlishSupportedLanguage(selectedSourceLanguage, { allowAuto: true })) {
+      statusEl.textContent = "YouGlish nao aceita este idioma.";
+      return;
+    }
+
     const response = await sendRuntimeMessage({
       type: "OPEN_YOUGLISH",
       text: sourceTerm,
@@ -719,6 +563,14 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
     }
 
     statusEl.textContent = "YouGlish aberto.";
+  });
+
+  setInitialSourceLanguage().catch(() => {
+    sourceSelect.value = "auto";
+    selectedSourceLanguage = "auto";
+    selectedTargetLanguage = getDefaultTargetLanguage();
+    updateFooterPairLabel();
+    updateYouGlishButtonState();
   });
 
   buttonRow.appendChild(pronounceBtn);
@@ -734,12 +586,13 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
 
     selectedSourceLanguage = sourceSelect.value || "auto";
     statusEl.textContent = "Traduzindo...";
+    updateYouGlishButtonState();
 
     try {
       await storageSet(BUBBLE_SOURCE_LANGUAGE_KEY, selectedSourceLanguage);
 
       const settings = (await storageGet("deepseekTranslatorSettings")) || {};
-      const targetLanguage = (settings.targetLanguage || "pt-BR").trim();
+      const targetLanguage = (settings.targetLanguage || getDefaultTargetLanguage()).trim();
       selectedTargetLanguage = targetLanguage;
 
       const response = await sendRuntimeMessage({

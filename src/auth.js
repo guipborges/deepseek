@@ -126,8 +126,77 @@ async function verifyOtp(email, token) {
   return { ok: true, session };
 }
 
+function normalizeSupabaseSession(data) {
+  const sessionData = data?.session || data || {};
+  const user = data?.user || sessionData?.user || {};
+  return {
+    accessToken: sessionData?.access_token,
+    refreshToken: sessionData?.refresh_token,
+    userId: user?.id,
+    email: user?.email,
+    expiresAt: sessionData?.expires_at,
+    expiresIn: sessionData?.expires_in,
+    tokenType: sessionData?.token_type || "bearer"
+  };
+}
+
+function isSessionExpiringSoon(session) {
+  const expiresAt = Number(session?.expiresAt || 0);
+  if (!expiresAt) {
+    return false;
+  }
+
+  const refreshWindowSeconds = 120;
+  return expiresAt - Math.floor(Date.now() / 1000) <= refreshWindowSeconds;
+}
+
+async function refreshSupabaseSession(session) {
+  if (!session?.refreshToken) {
+    return session;
+  }
+
+  const config = await getSupabaseConfig();
+  const url = new URL(`${config.supabaseUrl.replace(/\/$/, "")}/auth/v1/token`);
+  url.searchParams.set("grant_type", "refresh_token");
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: config.supabaseAnonKey
+    },
+    body: JSON.stringify({
+      refresh_token: session.refreshToken
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.error_description || error?.msg || "Failed to refresh session");
+  }
+
+  const refreshed = normalizeSupabaseSession(await response.json());
+  const nextSession = {
+    ...session,
+    ...refreshed,
+    refreshToken: refreshed.refreshToken || session.refreshToken
+  };
+
+  await setSupabaseSession(nextSession);
+  return nextSession;
+}
+
 async function getCurrentSession() {
-  return getSupabaseSession();
+  const session = await getSupabaseSession();
+  if (!session?.accessToken) {
+    return session;
+  }
+
+  if (!isSessionExpiringSoon(session)) {
+    return session;
+  }
+
+  return refreshSupabaseSession(session);
 }
 
 async function signOut() {
@@ -146,7 +215,7 @@ async function backendRequest(path, options = {}) {
     throw new Error("Backend API URL is not configured.");
   }
 
-  const session = await getSupabaseSession();
+  let session = await getCurrentSession();
   const headers = new Headers(options.headers || {});
   headers.set("content-type", "application/json");
 
@@ -154,12 +223,22 @@ async function backendRequest(path, options = {}) {
     headers.set("authorization", `Bearer ${session.accessToken}`);
   }
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  let response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     headers
   });
 
-  const data = await response.json().catch(() => null);
+  let data = await response.json().catch(() => null);
+
+  if (response.status === 401 && session?.refreshToken) {
+    session = await refreshSupabaseSession(session);
+    headers.set("authorization", `Bearer ${session.accessToken}`);
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...options,
+      headers
+    });
+    data = await response.json().catch(() => null);
+  }
 
   if (!response.ok || data?.ok === false) {
     throw new Error(data?.error || `Backend request failed (${response.status}).`);

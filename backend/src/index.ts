@@ -28,6 +28,11 @@ interface User {
   trial_ends_at: string;
 }
 
+interface AuthUser {
+  id: string;
+  email: string;
+}
+
 interface UsageMonthly {
   id?: string;
   user_id: string;
@@ -197,6 +202,36 @@ async function getUserById(env: Env, id: string): Promise<User | null> {
   return rows[0] || null;
 }
 
+async function findAuthUserByEmail(env: Env, email: string): Promise<AuthUser | null> {
+  const targetEmail = normalizeEmail(email);
+
+  for (let page = 1; page <= 20; page += 1) {
+    const response = await fetch(`${env.SUPABASE_URL.replace(/\/$/, "")}/auth/v1/admin/users?page=${page}&per_page=100`, {
+      method: "GET",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new HttpError(response.status, "supabase_auth_error", "Could not inspect Supabase Auth users.");
+    }
+
+    const data = (await response.json()) as { users?: Array<{ id?: string; email?: string }> };
+    const authUser = (data.users || []).find((candidate) => normalizeEmail(candidate.email || "") === targetEmail);
+    if (authUser?.id && authUser.email) {
+      return { id: authUser.id, email: normalizeEmail(authUser.email) };
+    }
+
+    if ((data.users || []).length < 100) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 async function ensureUser(env: Env, authId: string, email: string): Promise<User> {
   const existing = await getUserById(env, authId);
   if (existing) {
@@ -216,6 +251,20 @@ async function ensureUser(env: Env, authId: string, email: string): Promise<User
     })
   });
   return rows[0];
+}
+
+async function ensureUserByEmail(env: Env, email: string): Promise<User | null> {
+  const existing = await getUserByEmail(env, email);
+  if (existing) {
+    return existing;
+  }
+
+  const authUser = await findAuthUserByEmail(env, email);
+  if (!authUser) {
+    return null;
+  }
+
+  return ensureUser(env, authUser.id, authUser.email);
 }
 
 function getBearerToken(request: Request): string {
@@ -353,8 +402,7 @@ async function getDailyUsage(env: Env, userId: string): Promise<UsageDaily> {
 
 async function handleMe(request: Request, env: Env): Promise<Response> {
   const { user } = await authenticate(request, env);
-  const usage = await getMonthlyUsage(env, user.id);
-  const daily = await getDailyUsage(env, user.id);
+  const [usage, daily] = await Promise.all([getMonthlyUsage(env, user.id), getDailyUsage(env, user.id)]);
   return json({ ok: true, user: publicUser(user, env, usage, daily) }, {}, env);
 }
 
@@ -468,73 +516,86 @@ async function recordUsage(
   userId: string,
   requestType: RequestType,
   inputTokens: number,
-  outputTokens: number
-): Promise<void> {
+  outputTokens: number,
+  currentMonthly: UsageMonthly,
+  currentDaily: UsageDaily
+): Promise<{ monthly: UsageMonthly; daily: UsageDaily }> {
   const totalTokens = inputTokens + outputTokens;
   const month = monthKey();
   const day = dayKey();
-  const monthly = await getMonthlyUsage(env, userId);
-  const daily = await getDailyUsage(env, userId);
 
   const nextMonthly = {
     user_id: userId,
     month,
-    input_tokens: monthly.input_tokens + inputTokens,
-    output_tokens: monthly.output_tokens + outputTokens,
-    total_tokens: monthly.total_tokens + totalTokens,
-    translation_count: monthly.translation_count + (requestType === "translate" ? 1 : 0),
-    details_count: monthly.details_count + (requestType === "word_details" ? 1 : 0),
+    input_tokens: currentMonthly.input_tokens + inputTokens,
+    output_tokens: currentMonthly.output_tokens + outputTokens,
+    total_tokens: currentMonthly.total_tokens + totalTokens,
+    translation_count: currentMonthly.translation_count + (requestType === "translate" ? 1 : 0),
+    details_count: currentMonthly.details_count + (requestType === "word_details" ? 1 : 0),
     updated_at: nowIso()
   };
 
   const nextDaily = {
     user_id: userId,
     day,
-    translation_count: daily.translation_count + (requestType === "translate" ? 1 : 0),
-    details_count: daily.details_count + (requestType === "word_details" ? 1 : 0),
+    translation_count: currentDaily.translation_count + (requestType === "translate" ? 1 : 0),
+    details_count: currentDaily.details_count + (requestType === "word_details" ? 1 : 0),
     updated_at: nowIso()
   };
 
-  await supabase(env, "usage_monthly?on_conflict=user_id,month", {
-    method: "POST",
-    headers: { prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify(nextMonthly)
-  });
-
-  await supabase(env, "usage_daily?on_conflict=user_id,day", {
-    method: "POST",
-    headers: { prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify(nextDaily)
-  });
-
-  await supabase(env, "translation_logs", {
-    method: "POST",
-    body: JSON.stringify({
-      user_id: userId,
-      request_type: requestType,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      total_tokens: totalTokens
+  await Promise.all([
+    supabase(env, "usage_monthly?on_conflict=user_id,month", {
+      method: "POST",
+      headers: { prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify(nextMonthly)
+    }),
+    supabase(env, "usage_daily?on_conflict=user_id,day", {
+      method: "POST",
+      headers: { prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify(nextDaily)
+    }),
+    supabase(env, "translation_logs", {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: userId,
+        request_type: requestType,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        total_tokens: totalTokens
+      })
     })
-  });
+  ]);
+
+  return {
+    monthly: nextMonthly,
+    daily: nextDaily
+  };
 }
 
 async function deepSeekChat(env: Env, body: Record<string, unknown>): Promise<Record<string, any>> {
-  const response = await fetch("https://api.deepseek.com/chat/completions", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
-  const data = (await response.json().catch(() => null)) as Record<string, any> | null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
-  if (!response.ok) {
-    throw new HttpError(response.status, "deepseek_error", data?.error?.message || "AI service failed.");
+  try {
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+    const data = (await response.json().catch(() => null)) as Record<string, any> | null;
+
+    if (!response.ok) {
+      throw new HttpError(response.status, "deepseek_error", data?.error?.message || "AI service failed.");
+    }
+
+    return data || {};
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return data || {};
 }
 
 function usageFromDeepSeek(data: Record<string, any>): { inputTokens: number; outputTokens: number } {
@@ -548,6 +609,35 @@ function normalizeTranslatedText(text: string): string {
   return (text || "").trim();
 }
 
+function assistantContentText(data: Record<string, any>): string {
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content === "string") {
+    return normalizeTranslatedText(content);
+  }
+
+  if (Array.isArray(content)) {
+    const merged = content
+      .map((part: any) => {
+        if (typeof part === "string") {
+          return part;
+        }
+        if (typeof part?.text === "string") {
+          return part.text;
+        }
+        return "";
+      })
+      .join("");
+    return normalizeTranslatedText(merged);
+  }
+
+  const fallbackText = data?.choices?.[0]?.text;
+  if (typeof fallbackText === "string") {
+    return normalizeTranslatedText(fallbackText);
+  }
+
+  return "";
+}
+
 async function handleTranslate(request: Request, env: Env): Promise<Response> {
   const { user } = await authenticate(request, env);
   const body = await readJson<{
@@ -558,8 +648,7 @@ async function handleTranslate(request: Request, env: Env): Promise<Response> {
   const text = (body.text || "").trim();
   const sourceLanguage = (body.sourceLanguage || "auto").trim();
   const targetLanguage = (body.targetLanguage || "pt-BR").trim();
-  const monthly = await getMonthlyUsage(env, user.id);
-  const daily = await getDailyUsage(env, user.id);
+  const [monthly, daily] = await Promise.all([getMonthlyUsage(env, user.id), getDailyUsage(env, user.id)]);
 
   if (!text) {
     throw new HttpError(400, "missing_text", "Enter text to translate.");
@@ -569,7 +658,8 @@ async function handleTranslate(request: Request, env: Env): Promise<Response> {
 
   const data = await deepSeekChat(env, {
     model: deepSeekModel(env),
-    temperature: 0,
+    temperature: 0, // Already optimal, no change needed here.
+    max_tokens: Math.min(4000, Math.max(128, text.length * 2)),
     messages: [
       {
         role: "system",
@@ -585,21 +675,19 @@ async function handleTranslate(request: Request, env: Env): Promise<Response> {
     ]
   });
 
-  const translatedText = normalizeTranslatedText(data?.choices?.[0]?.message?.content || "");
+  const translatedText = assistantContentText(data);
   if (!translatedText) {
     throw new HttpError(502, "empty_ai_response", "AI response did not include translated text.");
   }
 
   const usage = usageFromDeepSeek(data);
-  await recordUsage(env, user.id, "translate", usage.inputTokens, usage.outputTokens);
-  const nextMonthly = await getMonthlyUsage(env, user.id);
-  const nextDaily = await getDailyUsage(env, user.id);
+  const nextUsage = await recordUsage(env, user.id, "translate", usage.inputTokens, usage.outputTokens, monthly, daily);
   return json(
     {
       ok: true,
       translatedText,
       usage,
-      account: publicUser(user, env, nextMonthly, nextDaily)
+      account: publicUser(user, env, nextUsage.monthly, nextUsage.daily)
     },
     {},
     env
@@ -616,8 +704,7 @@ async function handleWordDetails(request: Request, env: Env): Promise<Response> 
   const word = (body.word || "").trim();
   const sourceLanguage = (body.sourceLanguage || "auto").trim();
   const targetLanguage = (body.targetLanguage || "pt-BR").trim();
-  const monthly = await getMonthlyUsage(env, user.id);
-  const daily = await getDailyUsage(env, user.id);
+  const [monthly, daily] = await Promise.all([getMonthlyUsage(env, user.id), getDailyUsage(env, user.id)]);
 
   if (!word) {
     throw new HttpError(400, "missing_word", "Enter a word or short term.");
@@ -627,32 +714,32 @@ async function handleWordDetails(request: Request, env: Env): Promise<Response> 
 
   const data = await deepSeekChat(env, {
     model: deepSeekModel(env),
-    temperature: 0.2,
+    temperature: 0, // Already optimal.
+    max_tokens: 1000,
     messages: [
       {
         role: "system",
         content:
-          "Return only valid JSON with fields: pronunciation, synonym, antonym, synonymTranslation, antonymTranslation, example1, example2, pastExample, futureExample, example1Translation, example2Translation, pastExampleTranslation, futureExampleTranslation. Keep each field concise."
+          "Return only minified valid JSON (no markdown, no code fences). Required fields: pronunciation, synonym, antonym, synonymTranslation, antonymTranslation, example1, example2, pastExample, futureExample, example1Translation, example2Translation, pastExampleTranslation, futureExampleTranslation. Use short values."
       },
       {
         role: "user",
         content:
           `Word/term: ${word}\nSource language: ${sourceLanguage}\nTarget language: ${targetLanguage}\n` +
-          "Provide concise language-learning details and translations."
+          "Provide concise language-learning details in strict JSON."
       }
     ]
   });
 
-  const rawText = normalizeTranslatedText(data?.choices?.[0]?.message?.content || "");
+  const rawText = assistantContentText(data);
+
   if (!rawText) {
     throw new HttpError(502, "empty_ai_response", "AI response did not include word details.");
   }
 
   const usage = usageFromDeepSeek(data);
-  await recordUsage(env, user.id, "word_details", usage.inputTokens, usage.outputTokens);
-  const nextMonthly = await getMonthlyUsage(env, user.id);
-  const nextDaily = await getDailyUsage(env, user.id);
-  return json({ ok: true, detailsText: rawText, usage, account: publicUser(user, env, nextMonthly, nextDaily) }, {}, env);
+  const nextUsage = await recordUsage(env, user.id, "word_details", usage.inputTokens, usage.outputTokens, monthly, daily);
+  return json({ ok: true, detailsText: rawText, usage, account: publicUser(user, env, nextUsage.monthly, nextUsage.daily) }, {}, env);
 }
 
 async function verifyStripeSignature(secret: string, rawBody: string, sigHeader: string): Promise<void> {
@@ -679,6 +766,34 @@ async function verifyStripeSignature(secret: string, rawBody: string, sigHeader:
   }
 }
 
+function stripeObjectEmail(obj: Record<string, any>): string {
+  return normalizeEmail(
+    obj?.customer_details?.email ||
+      obj?.receipt_email ||
+      obj?.billing_details?.email ||
+      obj?.customer_email ||
+      obj?.customer?.email ||
+      ""
+  );
+}
+
+function stripeProviderSubscriptionId(obj: Record<string, any>, eventType: string, email: string): string {
+  const subscription =
+    obj?.subscription ||
+    obj?.parent?.subscription_details?.subscription ||
+    obj?.subscription_details?.subscription ||
+    "";
+  const payment =
+    obj?.payment_intent ||
+    obj?.payment?.payment_intent ||
+    obj?.charge ||
+    obj?.invoice ||
+    obj?.id ||
+    "";
+
+  return String(subscription || payment || `${email}:${eventType}`);
+}
+
 async function handleBillingWebhook(request: Request, env: Env): Promise<Response> {
   const rawBody = await request.text();
   const sigHeader = request.headers.get("stripe-signature") || "";
@@ -689,26 +804,30 @@ async function handleBillingWebhook(request: Request, env: Env): Promise<Respons
   const eventType = String(event?.type || "");
 
   // Only handle relevant payment events
-  const handled = ["checkout.session.completed", "payment_intent.succeeded", "charge.succeeded"];
+  const handled = [
+    "checkout.session.completed",
+    "payment_intent.succeeded",
+    "charge.succeeded",
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "invoice.paid",
+    "invoice.payment_succeeded",
+    "invoice_payment.paid"
+  ];
   if (!handled.includes(eventType)) {
     return json({ ok: true, skipped: true }, {}, env);
   }
 
   const obj = event?.data?.object as Record<string, any>;
-  const email = normalizeEmail(
-    obj?.customer_details?.email ||
-    obj?.receipt_email ||
-    obj?.billing_details?.email ||
-    ""
-  );
+  const email = stripeObjectEmail(obj);
   assertEmail(email);
 
-  const user = await getUserByEmail(env, email);
+  const user = await ensureUserByEmail(env, email);
   if (!user) {
     throw new HttpError(404, "user_not_found", "No account found for this email.");
   }
 
-  const paymentIntentId = String(obj?.payment_intent || obj?.id || "");
+  const subscriptionId = stripeProviderSubscriptionId(obj, eventType, email);
   const customerId = String(obj?.customer || "");
 
   await supabase(env, "subscriptions?on_conflict=provider_subscription_id", {
@@ -718,7 +837,7 @@ async function handleBillingWebhook(request: Request, env: Env): Promise<Respons
       user_id: user.id,
       provider: "stripe",
       provider_customer_id: customerId || null,
-      provider_subscription_id: paymentIntentId || `${email}:${eventType}:${Date.now()}`,
+      provider_subscription_id: subscriptionId,
       status: "active",
       renews_at: null,
       ends_at: null,

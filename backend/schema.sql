@@ -16,7 +16,7 @@ create table if not exists public.users (
 create table if not exists public.subscriptions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
-  provider text not null default 'lemon_squeezy',
+  provider text not null default 'stripe',
   provider_customer_id text,
   provider_subscription_id text unique,
   status text not null,

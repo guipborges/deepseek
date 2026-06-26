@@ -25,6 +25,8 @@ const dismissOnboardingBtn = document.getElementById("dismissOnboardingBtn");
 const accountPanel = document.getElementById("accountPanel");
 const accountPlanText = document.getElementById("accountPlanText");
 const accountUsageText = document.getElementById("accountUsageText");
+const usageRing = document.getElementById("usageRing");
+const usageRingText = document.getElementById("usageRingText");
 const upgradeBtn = document.getElementById("upgradeBtn");
 
 const translateBtn = document.getElementById("translateBtn");
@@ -77,6 +79,16 @@ let autoDetailsTimer = null;
 let isGeneratingDetails = false;
 let detailsSpeechLanguage = "en-US";
 let selectionHistoryCache = [];
+const TRANSLATION_LANGUAGES =
+  typeof LANGUAGE_CATALOG !== "undefined" && Array.isArray(LANGUAGE_CATALOG) && LANGUAGE_CATALOG.length
+    ? LANGUAGE_CATALOG
+    : [
+        { value: "en-US", short: "EN", label: "English" },
+        { value: "pt-BR", short: "PT", label: "Portuguese" },
+        { value: "es-ES", short: "ES", label: "Spanish" },
+        { value: "de-DE", short: "DE", label: "German" },
+        { value: "fr-FR", short: "FR", label: "French" }
+      ];
 
 const UI_TEXTS = {
   pt: {
@@ -142,7 +154,7 @@ const UI_TEXTS = {
     onboardingCodeSent: "Link enviado. Verifique seu email.",
     onboardingSaved: "Login confirmado.",
     accountTrial: "Trial",
-    accountPro: "Plano anual ativo",
+    accountPro: "PRO",
     accountExpired: "Trial encerrado",
     accountUsage: "{used}/{limit} tokens este mes",
     accountUpgrade: "Plano anual"
@@ -210,7 +222,7 @@ const UI_TEXTS = {
     onboardingCodeSent: "Link sent. Check your email.",
     onboardingSaved: "Signed in.",
     accountTrial: "Trial",
-    accountPro: "Annual plan active",
+    accountPro: "PRO",
     accountExpired: "Trial ended",
     accountUsage: "{used}/{limit} tokens this month",
     accountUpgrade: "Annual plan"
@@ -278,7 +290,7 @@ const UI_TEXTS = {
     onboardingCodeSent: "Link gesendet. Pruefen Sie Ihre E-Mail.",
     onboardingSaved: "Angemeldet.",
     accountTrial: "Testphase",
-    accountPro: "Jahresplan aktiv",
+    accountPro: "PRO",
     accountExpired: "Testphase beendet",
     accountUsage: "{used}/{limit} Tokens diesen Monat",
     accountUpgrade: "Jahresplan"
@@ -310,6 +322,48 @@ function tl(pt, en, de) {
     return en;
   }
   return pt;
+}
+
+function isSupportedTranslationLanguage(value) {
+  const normalized = (value || "").toLowerCase();
+  return TRANSLATION_LANGUAGES.some((language) => language.value.toLowerCase() === normalized);
+}
+
+function populateLanguageSelect(select, { includeAuto = false, useShortLabels = false } = {}) {
+  if (!select) {
+    return;
+  }
+
+  const current = (select.value || "").trim();
+  select.innerHTML = "";
+
+  if (includeAuto) {
+    const option = document.createElement("option");
+    option.value = "auto";
+    option.textContent = "Auto";
+    select.appendChild(option);
+  }
+
+  for (const language of TRANSLATION_LANGUAGES) {
+    const option = document.createElement("option");
+    option.value = language.value;
+    option.textContent = useShortLabels ? language.short : language.label;
+    select.appendChild(option);
+  }
+
+  if (current && (current === "auto" || isSupportedTranslationLanguage(current))) {
+    select.value = current;
+  }
+}
+
+function populateTranslationLanguageSelects() {
+  populateLanguageSelect(quickSourceLanguageSelect, { includeAuto: true, useShortLabels: true });
+  populateLanguageSelect(quickTargetLanguageSelect, { useShortLabels: true });
+  populateLanguageSelect(onboardingTargetLanguageSelect);
+
+  if (!quickTargetLanguageSelect.value) {
+    quickTargetLanguageSelect.value = "pt-BR";
+  }
 }
 
 function applyPopupLanguage() {
@@ -434,7 +488,7 @@ function applyOnboardingLanguage() {
 
 async function applyAppLanguageFromSettings() {
   const settings = (await storageGet(SETTINGS_KEY)) || {};
-  currentUiLanguage = settings.appLanguage || "pt-BR";
+  currentUiLanguage = settings.appLanguage || getDefaultAppLanguage();
   applyPopupLanguage();
 }
 
@@ -445,24 +499,9 @@ function getSourceLanguageShortLabel(language) {
     return "AUTO";
   }
 
-  if (code.startsWith("de")) {
-    return "DE";
-  }
-
-  if (code.startsWith("en")) {
-    return "US";
-  }
-
-  if (code.startsWith("pt")) {
-    return "PT";
-  }
-
-  if (code.startsWith("es")) {
-    return "ES";
-  }
-
-  if (code.startsWith("fr")) {
-    return "FR";
+  const match = TRANSLATION_LANGUAGES.find((item) => item.value.toLowerCase() === code);
+  if (match?.short) {
+    return match.short;
   }
 
   return code.slice(0, 2).toUpperCase() || "AUTO";
@@ -1077,6 +1116,28 @@ function formatAccountUsage(user) {
   return t("accountUsage").replace("{used}", String(used)).replace("{limit}", String(limit));
 }
 
+function updateUsageRing(user) {
+  if (!usageRing) {
+    return;
+  }
+
+  const used = Number(user?.usage?.monthlyTokens || 0);
+  const limit = Number(user?.limits?.monthlyTokens || 0);
+  const hasLimit = Number.isFinite(limit) && limit > 0;
+  usageRing.classList.toggle("hidden", !hasLimit);
+
+  if (!hasLimit) {
+    return;
+  }
+
+  const percent = Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
+  usageRing.style.setProperty("--usage", `${percent}%`);
+  usageRing.setAttribute("aria-valuenow", String(percent));
+  if (usageRingText) {
+    usageRingText.textContent = `${percent}%`;
+  }
+}
+
 function updateAccountPanel(user = null) {
   if (!accountPanel) {
     return;
@@ -1084,6 +1145,13 @@ function updateAccountPanel(user = null) {
 
   accountPanel.classList.toggle("hidden", !user);
   if (!user) {
+    upgradeBtn?.classList.remove("pro-badge");
+    if (upgradeBtn) {
+      upgradeBtn.disabled = false;
+      upgradeBtn.setAttribute("aria-disabled", "false");
+      upgradeBtn.textContent = t("accountUpgrade");
+    }
+    usageRing?.classList.add("hidden");
     return;
   }
 
@@ -1092,6 +1160,16 @@ function updateAccountPanel(user = null) {
   }
   if (accountUsageText) {
     accountUsageText.textContent = formatAccountUsage(user);
+  }
+
+  updateUsageRing(user);
+
+  if (upgradeBtn) {
+    const isPro = user.plan === "pro";
+    upgradeBtn.classList.toggle("pro-badge", isPro);
+    upgradeBtn.disabled = isPro;
+    upgradeBtn.setAttribute("aria-disabled", isPro ? "true" : "false");
+    upgradeBtn.textContent = isPro ? "PRO" : t("accountUpgrade");
   }
 }
 
@@ -2231,6 +2309,7 @@ async function initPopup() {
 
   await Promise.all([
     applyThemeFromSettings(),
+    Promise.resolve().then(() => populateTranslationLanguageSelects()),
     applyAppLanguageFromSettings(),
     applyPopupSizeFromSettings(),
     populateVoiceSelect(),

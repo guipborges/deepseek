@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -15,17 +15,16 @@
           <strong id="accountStatusText">Conta nao conectada</strong>
           <span id="accountUsageText">Entre pelo popup para ativar o trial.</span>
         </div>
-        <button id="logoutBtn" class="secondary-btn" type="button">Sair</button>
+        <div class="account-actions">
+          <div id="usageRing" class="usage-ring hidden" role="meter" aria-label="Uso mensal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span id="usageRingText">0%</span>
+          </div>
+          <button id="logoutBtn" class="secondary-btn" type="button">Sair</button>
+        </div>
       </section>
 
-      <label for="backendApiUrl">URL da API</label>
-      <input id="backendApiUrl" type="url" placeholder="https://ayvu-api.ayvu-app.workers.dev" />
-
-      <label for="checkoutUrl">Link de checkout</label>
-      <input id="checkoutUrl" type="url" placeholder="https://..." />
-
       <label for="targetLanguage">Idioma de destino</label>
-      <input id="targetLanguage" type="text" value="pt-BR" placeholder="pt-BR, en, es..." />
+      <select id="targetLanguage"></select>
 
       <label for="popupWidth">Largura do popup (px)</label>
       <input id="popupWidth" type="number" value="340" min="280" max="780" />
@@ -41,11 +40,9 @@
 
       <label for="appLanguage">Lingua do app</label>
       <select id="appLanguage">
-        <option value="pt-BR">PT-BR (Portugues)</option>
-        <option value="en-US">US (English)</option>
-        <option value="de-DE">DE (Deutsch)</option>
-        <option value="es-ES">ES (Espanol)</option>
-        <option value="fr-FR">FR (Francais)</option>
+        <option value="en-US">English</option>
+        <option value="pt-BR">Portugues</option>
+        <option value="de-DE">Deutsch</option>
       </select>
 
       <fieldset class="trigger-mode-fieldset" id="popupOpenTriggerFieldset">
@@ -67,6 +64,8 @@
       <p id="status" class="status"></p>
     </main>
 
+    <script src="./shared/utils.js"></script>
+    <script src="./shared/language.js"></script>
     <script src="./auth.js"></script>
     <script src="./options.js"></script>
   </body>

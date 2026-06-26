@@ -93,6 +93,33 @@ select {
   color: var(--muted);
 }
 
+.account-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.usage-ring {
+  --usage: 0%;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle closest-side, var(--panel) 67%, transparent 69%),
+    conic-gradient(#18a05f var(--usage), color-mix(in srgb, var(--line) 82%, var(--panel)) 0);
+  color: var(--text);
+  flex: 0 0 auto;
+}
+
+.usage-ring span {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+}
+
 .secondary-btn {
   width: auto;
   min-width: 82px;
@@ -152,4 +179,8 @@ button:hover {
 .checkbox-row input[type="checkbox"],
 .checkbox-row input[type="radio"] {
   width: auto;
+}
+
+.hidden {
+  display: none !important;
 }

@@ -10,7 +10,9 @@ const DB_VERSION = 1;
 const FLASHCARDS_STORE = "flashcards";
 const MAX_TRANSLATION_CHARS = 12000;
 
-importScripts("auth.js");
+importScripts("shared/utils.js", "shared/language.js", "auth.js");
+
+const TRANSLATION_LANGUAGES = LANGUAGE_CATALOG.map((language) => language.value);
 
 chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "AYVU_SUPABASE_AUTH") {
@@ -25,6 +27,7 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
 
   setSupabaseSession(session)
     .then(() => openOrFocusMainWindow())
+    .then(() => chrome.runtime.sendMessage({ type: "AYVU_AUTH_UPDATED" }).catch(() => {}))
     .then(() => sendResponse({ ok: true }))
     .catch((error) => sendResponse({ ok: false, error: error.message }));
   return true;
@@ -267,76 +270,14 @@ async function migrateStorageFlashcardsIfNeeded() {
   await storageSet(MIGRATION_FLAG_KEY, true);
 }
 
-function normalizeWord(text) {
-  return (text || "").trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
-}
 
-function normalizeTerm(text) {
-  return (text || "").trim().replace(/\s+/g, " ");
-}
 
-function splitTermWords(text) {
-  return normalizeTerm(text)
-    .split(" ")
-    .map((part) => part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
-    .filter(Boolean);
-}
 
-function isSingleWord(text) {
-  const cleaned = normalizeWord(text);
-  if (!cleaned) {
-    return false;
-  }
-
-  if (/\s/u.test(cleaned)) {
-    return false;
-  }
-
-  return /[\p{L}\p{N}]/u.test(cleaned);
-}
-
-function isPhrasalVerbLike(text) {
-  const words = splitTermWords(text);
-  if (words.length < 2 || words.length > 3) {
-    return false;
-  }
-
-  const particles = new Set([
-    "up",
-    "down",
-    "off",
-    "on",
-    "in",
-    "out",
-    "away",
-    "back",
-    "over",
-    "through",
-    "along",
-    "around",
-    "about",
-    "across",
-    "after",
-    "apart",
-    "with"
-  ]);
-
-  const firstWordLooksValid = /^[\p{L}][\p{L}'-]*$/u.test(words[0]);
-  if (!firstWordLooksValid) {
-    return false;
-  }
-
-  return words.slice(1).some((word) => particles.has(word.toLowerCase()));
-}
-
-function isAdvancedTerm(text) {
-  return isSingleWord(text) || isPhrasalVerbLike(text);
-}
 
 async function translateWithDeepSeek(text, overrides = {}) {
   const settings = (await storageGet(SETTINGS_KEY)) || {};
   const sourceLanguage = (overrides.sourceLanguage || settings.sourceLanguage || "auto").trim();
-  const targetLanguage = (overrides.targetLanguage || settings.targetLanguage || "pt-BR").trim();
+  const targetLanguage = (overrides.targetLanguage || settings.targetLanguage || getDefaultTargetLanguage()).trim();
 
   if (!(await getCurrentSession())?.accessToken) {
     throw new Error("Entre com seu email no popup para traduzir.");
@@ -360,39 +301,13 @@ async function translateWithDeepSeek(text, overrides = {}) {
   return normalizeTranslatedText(translatedText);
 }
 
-function normalizeTranslatedText(text) {
-  const raw = (text || "").trim();
-  if (!raw) {
-    return "";
-  }
 
-  const lines = raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (!lines.length) {
-    return raw;
-  }
-
-  const firstLine = lines[0].toLowerCase();
-  const looksLikePreamble =
-    firstLine.startsWith("translating ") ||
-    (firstLine.startsWith("translation") && firstLine.includes("from") && firstLine.includes("to"));
-
-  if (looksLikePreamble && lines.length > 1) {
-    return lines.slice(1).join("\n").trim();
-  }
-
-  return raw;
-}
-
-async function saveFlashcard(sourceText, translatedText) {
+async function saveFlashcard(sourceText, translatedText, overrides = {}) {
   await migrateStorageFlashcardsIfNeeded();
 
   const settings = (await storageGet(SETTINGS_KEY)) || {};
-  const configuredSourceLanguage = (settings.sourceLanguage || "auto").trim();
-  const targetLanguage = (settings.targetLanguage || "pt-BR").trim();
+  const configuredSourceLanguage = (overrides.sourceLanguage || settings.sourceLanguage || "auto").trim();
+  const targetLanguage = (overrides.targetLanguage || settings.targetLanguage || getDefaultTargetLanguage()).trim();
 
   const list = await listFlashcardsFromDb();
   const normalizedSource = normalizeTerm(sourceText);
@@ -448,36 +363,6 @@ async function removeFlashcard(id) {
 async function clearFlashcards() {
   await migrateStorageFlashcardsIfNeeded();
   await clearFlashcardsFromDb();
-}
-
-function mapLanguageToYouGlish(language) {
-  const code = (language || "").toLowerCase();
-
-  if (code.startsWith("pt")) {
-    return "portuguese";
-  }
-
-  if (code.startsWith("es")) {
-    return "spanish";
-  }
-
-  if (code.startsWith("fr")) {
-    return "french";
-  }
-
-  if (code.startsWith("de")) {
-    return "german";
-  }
-
-  if (code.startsWith("it")) {
-    return "italian";
-  }
-
-  if (code.startsWith("zh")) {
-    return "chinese";
-  }
-
-  return "english";
 }
 
 function detectLanguageWithChrome(text) {
@@ -546,10 +431,20 @@ async function detectLanguageSmart(text, fallbackLanguage) {
 async function detectYouGlishLanguage(text, fallbackLanguage) {
   const detected = await detectLanguageSmart(text, fallbackLanguage);
   if (detected && detected !== "und") {
-    return mapLanguageToYouGlish(detected);
+    const detectedLanguage = mapLanguageToYouGlish(detected);
+    if (detectedLanguage) {
+      return detectedLanguage;
+    }
+
+    throw new Error("YouGlish nao aceita o idioma detectado.");
   }
 
-  return mapLanguageToYouGlish(fallbackLanguage);
+  const fallbackYouGlishLanguage = mapLanguageToYouGlish(fallbackLanguage);
+  if (fallbackYouGlishLanguage) {
+    return fallbackYouGlishLanguage;
+  }
+
+  return "english";
 }
 
 async function openYouGlishWindow(text, languageHint) {
@@ -574,34 +469,6 @@ async function openYouGlishWindow(text, languageHint) {
     width: 560,
     height: 520
   });
-}
-
-function mapLanguageToForvoCode(language) {
-  const code = (language || "").toLowerCase();
-
-  if (code.startsWith("pt")) {
-    return "pt";
-  }
-  if (code.startsWith("es")) {
-    return "es";
-  }
-  if (code.startsWith("fr")) {
-    return "fr";
-  }
-  if (code.startsWith("de")) {
-    return "de";
-  }
-  if (code.startsWith("it")) {
-    return "it";
-  }
-  if (code.startsWith("nl")) {
-    return "nl";
-  }
-  if (code.startsWith("ru")) {
-    return "ru";
-  }
-
-  return "en";
 }
 
 async function openForvoWindow(text, languageHint) {
@@ -711,8 +578,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "SAVE_FLASHCARD") {
     const sourceText = (message.sourceText || "").trim();
     const translatedText = (message.translatedText || "").trim();
+    const sourceLanguage = (message.sourceLanguage || "").trim();
+    const targetLanguage = (message.targetLanguage || "").trim();
 
-    saveFlashcard(sourceText, translatedText)
+    saveFlashcard(sourceText, translatedText, {
+      sourceLanguage,
+      targetLanguage
+    })
       .then((result) => {
         sendResponse({ ok: true, alreadyExists: result.alreadyExists });
       })

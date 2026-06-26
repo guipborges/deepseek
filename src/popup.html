@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,19 +12,10 @@
         <h1>Ayvu</h1>
         <div class="top-controls">
           <span class="lang-icon" title="Idiomas">🌐</span>
-          <select id="quickSourceLanguage" class="mini-select" title="Idioma de origem">
+          <select id="quickSourceLanguage" class="mini-select" title="Source language">
             <option value="auto">Auto</option>
-            <option value="de-DE">DE</option>
-            <option value="en-US">US</option>
-            <option value="pt-BR">PT</option>
           </select>
-          <select id="quickTargetLanguage" class="mini-select" title="Idioma de destino">
-            <option value="pt-BR">PT</option>
-            <option value="en-US">EN</option>
-            <option value="de-DE">DE</option>
-            <option value="es-ES">ES</option>
-            <option value="fr-FR">FR</option>
-          </select>
+          <select id="quickTargetLanguage" class="mini-select" title="Target language"></select>
           <button id="resetSizeBtn" class="icon-btn" type="button" title="Voltar tamanho padrão">↺</button>
           <button id="voicePickerBtn" class="icon-btn" type="button" title="Voz automática" aria-label="Voz automática">🎤</button>
           <button id="openSettingsBtn" class="icon-btn" type="button" title="Configurações">⚙️</button>
@@ -42,7 +33,7 @@
         <div class="onboarding-head">
           <div>
             <p id="onboardingEyebrow" class="onboarding-eyebrow">Conta</p>
-            <h2 id="onboardingTitle">Entrar para traduzir</h2>
+            <h2 id="onboardingTitle">Sign in to Ayvu</h2>
           </div>
           <button id="dismissOnboardingBtn" class="onboarding-dismiss" type="button" title="Fechar" aria-label="Fechar">
             ×
@@ -50,28 +41,22 @@
         </div>
 
         <ol id="onboardingSteps" class="onboarding-steps">
-          <li>Informe seu email.</li>
-          <li>Clique no link recebido.</li>
-          <li>Volte para a extensao com 30 dias gratis ativos.</li>
+          <li>Enter your account email.</li>
+          <li>We will send you a secure sign-in link.</li>
+          <li>Click the link and return here to continue.</li>
         </ol>
 
         <label id="onboardingEmailLabel" for="onboardingEmail">Email</label>
-        <input id="onboardingEmail" type="email" placeholder="voce@email.com" autocomplete="email" />
+        <input id="onboardingEmail" type="email" placeholder="you@email.com" autocomplete="email" />
 
         <label id="onboardingCodeLabel" class="hidden" for="onboardingCode">Codigo de acesso</label>
         <input id="onboardingCode" class="hidden" type="text" inputmode="numeric" placeholder="123456" autocomplete="one-time-code" />
 
-        <label id="onboardingTargetLanguageLabel" for="onboardingTargetLanguage">Idioma de destino</label>
-        <select id="onboardingTargetLanguage">
-          <option value="pt-BR">Português (Brasil)</option>
-          <option value="en-US">English</option>
-          <option value="de-DE">Deutsch</option>
-          <option value="es-ES">Español</option>
-          <option value="fr-FR">Français</option>
-        </select>
+        <label id="onboardingTargetLanguageLabel" for="onboardingTargetLanguage">Target language</label>
+        <select id="onboardingTargetLanguage"></select>
 
         <div class="onboarding-actions">
-          <button id="requestMagicLinkBtn" type="button">Enviar link</button>
+          <button id="requestMagicLinkBtn" type="button">Sign in with email</button>
           <button id="saveOnboardingBtn" class="hidden" type="button">Validar e entrar</button>
           <button id="openOnboardingSettingsBtn" class="secondary-btn" type="button">Configurações</button>
         </div>
@@ -82,7 +67,12 @@
           <strong id="accountPlanText">Trial</strong>
           <span id="accountUsageText">0 usados</span>
         </div>
-        <button id="upgradeBtn" class="secondary-btn" type="button">Plano anual</button>
+        <div class="account-actions">
+          <div id="usageRing" class="usage-ring hidden" role="meter" aria-label="Uso mensal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span id="usageRingText">0%</span>
+          </div>
+          <button id="upgradeBtn" class="secondary-btn" type="button">Plano anual</button>
+        </div>
       </section>
 
       <section id="translatorTabPanel" class="tab-panel active">
@@ -95,24 +85,12 @@
         </div>
         <textarea id="inputText" placeholder="Dê duplo clique numa palavra na página ou cole aqui"></textarea>
 
-        <div class="history-tools">
-          <input id="historySearchInput" type="search" placeholder="Buscar histórico" autocomplete="off" />
-        </div>
-        <div class="history-row">
-          <select id="historySelect" title="Historico de selecoes">
-            <option value="">Historico (ultimas 20)</option>
-          </select>
-          <button id="useHistoryBtn" type="button">Usar</button>
-          <button id="removeHistoryBtn" type="button" title="Remover item">✕</button>
-          <button id="clearHistoryBtn" type="button" title="Limpar historico">🧹</button>
-        </div>
+        <label for="outputText">Resultado</label>
+        <textarea id="outputText" readonly></textarea>
 
         <div class="buttons buttons-single">
           <button id="translateBtn" type="button">Traduzir</button>
         </div>
-
-        <label for="outputText">Resultado</label>
-        <textarea id="outputText" readonly></textarea>
 
         <div class="result-actions">
           <button id="copyBtn" type="button">Copiar resultado</button>
@@ -120,9 +98,23 @@
         </div>
 
         <div class="buttons">
-          <button id="openFlashcardsBtn" type="button">Flashcards</button>
-          <button id="youglishBtn" type="button">YouGlish</button>
           <button id="forvoBtn" type="button">Forvo</button>
+          <button id="youglishBtn" type="button">YouGlish</button>
+          <button id="openFlashcardsBtn" type="button">Flashcards</button>
+        </div>
+
+        <div class="history-panel">
+          <div class="history-tools">
+            <input id="historySearchInput" type="search" placeholder="Buscar histórico" autocomplete="off" />
+          </div>
+          <div class="history-row">
+            <select id="historySelect" title="Historico de selecoes">
+              <option value="">Historico (ultimas 20)</option>
+            </select>
+            <button id="useHistoryBtn" type="button">Usar</button>
+            <button id="removeHistoryBtn" type="button" title="Remover item">✕</button>
+            <button id="clearHistoryBtn" type="button" title="Limpar historico">🧹</button>
+          </div>
         </div>
       </section>
 
@@ -210,6 +202,8 @@
       </nav>
     </main>
 
+    <script src="./shared/utils.js"></script>
+    <script src="./shared/language.js"></script>
     <script src="./auth.js"></script>
     <script src="./popup.js"></script>
   </body>

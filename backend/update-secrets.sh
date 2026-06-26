@@ -23,7 +23,7 @@ set_secret() {
     return
   fi
   
-  echo "$value" | npx wrangler secret put "$key" --path . > /dev/null 2>&1
+  echo "$value" | npx wrangler secret put "$key" > /dev/null 2>&1
   echo "✅ $key updated"
 }
 
