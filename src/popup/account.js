@@ -1,50 +1,10 @@
 // Account and onboarding functions for popup — loaded via <script> before popup.js
 
-/* Account panel */
-
-function updateUsageRing(user) {
-  if (!usageRing) return;
-  const used = Number(user?.usage?.total_tokens || 0);
-  const limit = Number(user?.limits?.monthlyTokens || 0);
-  const hasLimit = Number.isFinite(limit) && limit > 0;
-  usageRing.classList.toggle("hidden", !hasLimit);
-  if (!hasLimit) return;
-  const percent = Math.max(0, Math.min(100, Math.round((used / limit) * 100)));
-  usageRing.style.setProperty("--usage", `${percent}%`);
-  usageRing.setAttribute("aria-valuenow", String(percent));
-  if (usageRingText) usageRingText.textContent = `${percent}%`;
-}
-
-function getAccountPlanLabel(plan) {
-  if (plan === "pro") return t("accountPro");
-  if (plan === "expired") return t("accountExpired");
-  return t("accountTrial");
-}
-
-function formatAccountUsage(user) {
-  const used = Number(user?.usage?.monthlyTokens || 0);
-  const limit = Number(user?.limits?.monthlyTokens || 0);
-  if (!limit) return t("accountUsage").replace("{used}", String(used)).replace("{limit}", "-");
-  return t("accountUsage").replace("{used}", String(used)).replace("{limit}", String(limit));
-}
-
 function updateAccountPanel(user = null) {
-  if (!accountPanel) return;
-  accountPanel.classList.toggle("hidden", !user);
-  if (!user) {
-    upgradeBtn?.classList.remove("pro-badge");
-    if (upgradeBtn) { upgradeBtn.disabled = false; upgradeBtn.setAttribute("aria-disabled", "false"); upgradeBtn.textContent = t("accountUpgrade"); }
-    usageRing?.classList.add("hidden");
-    return;
-  }
-  updateUsageRing(user);
-  if (upgradeBtn) {
-    const isPro = user.plan === "pro";
-    upgradeBtn.classList.toggle("pro-badge", isPro);
-    upgradeBtn.disabled = isPro;
-    upgradeBtn.setAttribute("aria-disabled", isPro ? "true" : "false");
-    upgradeBtn.textContent = isPro ? "PRO" : t("accountUpgrade");
-  }
+  if (!onboardingPanel) return;
+  const hasSession = !!user;
+  onboardingPanel.classList.toggle("hidden", hasSession);
+  if (!user) return;
 }
 
 async function refreshOnboarding() {
