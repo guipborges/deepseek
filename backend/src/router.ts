@@ -62,8 +62,10 @@ async function handleTranslate(request: Request, env: Env): Promise<Response> {
     model: deepSeekModel(env), temperature: 0,
     max_tokens: Math.min(4000, Math.max(128, text.length * 2)),
     messages: [
-      { role: "system", content: "You are a translation engine. Translate faithfully and naturally. Return only the translated text." },
-      { role: "user", content: `Translate from ${sourceLanguage} to ${targetLanguage}. Keep formatting.\n\n${text}` }
+      { role: "system", content: "You are a translation engine. Identify the source language automatically if not specified. Return ONLY the translated text, no explanations, no notes." },
+      { role: "user", content: sourceLanguage === "auto"
+        ? `Translate to ${targetLanguage}. Return only the translation.\n\n${text}`
+        : `Translate from ${sourceLanguage} to ${targetLanguage}. Return only the translation.\n\n${text}` }
     ]
   });
 
@@ -156,10 +158,19 @@ function usageFromDeepSeek(data: Record<string, any>): { inputTokens: number; ou
 
 function assistantContentText(data: Record<string, any>): string {
   const c = data?.choices?.[0]?.message?.content;
-  if (typeof c === "string") return c.trim();
-  if (Array.isArray(c)) return c.map((p: any) => (typeof p === "string" ? p : p?.text || "")).join("").trim();
+  if (typeof c === "string") { const t = c.trim(); if (t) return t; }
+  if (Array.isArray(c)) {
+    for (const part of c) {
+      if (typeof part === "string") { const t = part.trim(); if (t) return t; }
+      if (part?.text) { const t = part.text.trim(); if (t) return t; }
+    }
+  }
   const f = data?.choices?.[0]?.text;
-  return typeof f === "string" ? f.trim() : "";
+  if (typeof f === "string") { const t = f.trim(); if (t) return t; }
+  // Last resort: return the entire raw content field
+  const raw = JSON.stringify(data?.choices?.[0]?.message);
+  if (raw && raw !== "{}") return raw.slice(0, 2000);
+  return "";
 }
 
 // --- Stripe helpers ---
