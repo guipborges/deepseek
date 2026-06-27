@@ -348,7 +348,6 @@ function applyOnboardingLanguage() {
   if (requestMagicLinkBtn) requestMagicLinkBtn.textContent = t("onboardingRequestCode");
   if (saveOnboardingBtn) saveOnboardingBtn.textContent = t("onboardingSave");
   if (openOnboardingSettingsBtn) openOnboardingSettingsBtn.textContent = t("onboardingSettings");
-  if (upgradeBtn) upgradeBtn.textContent = t("accountUpgrade");
   if (dismissOnboardingBtn) { dismissOnboardingBtn.title = t("onboardingClose"); dismissOnboardingBtn.setAttribute("aria-label", t("onboardingClose")); }
   if (onboardingSteps) {
     onboardingSteps.innerHTML = "";
