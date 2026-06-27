@@ -84,24 +84,6 @@ h1 {
   gap: 4px;
 }
 
-.account-panel {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 6px;
-  min-height: 0;
-}
-
-.account-panel .account-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.account-panel span {
-  color: var(--muted);
-}
-
 #voicePickerBtn.icon-btn {
   min-width: 30px;
   padding: 6px;

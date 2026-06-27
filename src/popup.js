@@ -22,12 +22,7 @@ const requestMagicLinkBtn = document.getElementById("requestMagicLinkBtn");
 const saveOnboardingBtn = document.getElementById("saveOnboardingBtn");
 const openOnboardingSettingsBtn = document.getElementById("openOnboardingSettingsBtn");
 const dismissOnboardingBtn = document.getElementById("dismissOnboardingBtn");
-const accountPanel = document.getElementById("accountPanel");
-const accountPlanText = document.getElementById("accountPlanText");
-const accountUsageText = document.getElementById("accountUsageText");
-const usageRing = document.getElementById("usageRing");
-const usageRingText = document.getElementById("usageRingText");
-const upgradeBtn = document.getElementById("upgradeBtn");
+
 
 const translateBtn = document.getElementById("translateBtn");
 const copyBtn = document.getElementById("copyBtn");
@@ -435,7 +430,6 @@ async function generateWordDetails(options = {}) {
     const parsed = extractJsonFromText(rawText);
     applyGeneratedWordDetails(parsed);
     lastDetailsKey = detailsKey;
-    updateAccountPanel(data?.account);
     if (!silent) {
       setStatus(tl("Detalhes gerados.", "Details generated.", "Details erstellt."));
     }
@@ -770,7 +764,6 @@ async function translate() {
     }
 
     outputText.value = normalizeTranslatedText(translated);
-    updateAccountPanel(data?.account);
     scheduleAutoDetailsGeneration(200);
     setStatus(tl("Traducao concluida.", "Translation completed.", "Uebersetzung abgeschlossen."));
   } catch (error) {
@@ -922,26 +915,6 @@ saveOnboardingBtn?.addEventListener("click", () => {
   saveOnboardingSettings().catch((error) => {
     setStatus(tl("Falha ao entrar: ", "Sign-in failed: ", "Anmeldung fehlgeschlagen: ") + error.message, true);
   });
-});
-upgradeBtn?.addEventListener("click", () => {
-  getCheckoutUrl()
-    .then((url) => {
-      if (!url) {
-        setStatus(
-          tl(
-            "Configure o link de checkout nas Configuracoes.",
-            "Configure the checkout link in Settings.",
-            "Konfigurieren Sie den Checkout-Link in den Einstellungen."
-          ),
-          true
-        );
-        return;
-      }
-      chrome.tabs.create({ url });
-    })
-    .catch((error) => {
-      setStatus(tl("Falha ao abrir checkout: ", "Failed to open checkout: ", "Checkout konnte nicht geoeffnet werden: ") + error.message, true);
-    });
 });
 openOnboardingSettingsBtn?.addEventListener("click", openSettings);
 dismissOnboardingBtn?.addEventListener("click", () => {
