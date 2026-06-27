@@ -4,7 +4,7 @@
 
 function updateUsageRing(user) {
   if (!usageRing) return;
-  const used = Number(user?.usage?.monthlyTokens || 0);
+  const used = Number(user?.usage?.total_tokens || 0);
   const limit = Number(user?.limits?.monthlyTokens || 0);
   const hasLimit = Number.isFinite(limit) && limit > 0;
   usageRing.classList.toggle("hidden", !hasLimit);
