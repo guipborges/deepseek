@@ -384,6 +384,5 @@ function listenThemeChanges() {
     applyTheme(next.themeMode || "light");
     currentUiLanguage = next.appLanguage || "pt-BR";
     applyPopupLanguage();
-    refreshOnboarding().catch(() => {});
   });
 }
