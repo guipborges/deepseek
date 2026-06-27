@@ -15,7 +15,7 @@ export function effectivePlan(user: User): "trial" | "pro" | "expired" {
 export function getLimits(env: Env, plan: "trial" | "pro" | "expired"): Record<string, number> {
   if (plan === "pro") {
     return {
-      monthlyTokens: envNumber(env, "PRO_MONTHLY_TOKENS", 100000),
+      monthlyTokens: envNumber(env, "PRO_MONTHLY_TOKENS", 1000000),
       dailyTranslations: envNumber(env, "PRO_DAILY_TRANSLATIONS", 300),
       dailyDetails: 999999,
       maxTranslationChars: envNumber(env, "MAX_TRANSLATION_CHARS", 2000)
