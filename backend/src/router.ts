@@ -144,7 +144,7 @@ async function deepSeekChat(env: Env, body: Record<string, unknown>): Promise<Re
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: { authorization: `Bearer ${env.DEEPSEEK_API_KEY}`, "content-type": "application/json" },
-      body: JSON.stringify(body), signal: controller.signal
+      body: JSON.stringify({ ...body, reasoning: { enabled: false } }), signal: controller.signal
     });
     const data = (await response.json().catch(() => null)) as Record<string, any> | null;
     if (!response.ok) throw new HttpError(response.status, "deepseek_error", data?.error?.message || "AI service failed.");
@@ -167,15 +167,23 @@ function assistantContentText(data: Record<string, any>): string {
       if (part?.text) { const t = part.text.trim(); if (t) return t; }
     }
   }
-  // Fallback: extract translation from reasoning_content (deepseek-v4-flash puts response there)
+  // Fallback: extract translation from reasoning_content
   const r = msg.reasoning_content;
   if (typeof r === "string" && r.length > 10) {
-    // Try to find the translated word/phrase at the end of reasoning
-    const lines = r.split("\n").map((l: string) => l.trim()).filter(Boolean);
-    const lastLine = lines[lines.length - 1] || "";
-    // If last line looks like a translation (short, no English words), use it
-    if (lastLine.length < 100 && !lastLine.toLowerCase().includes("translate")) return lastLine;
-    // Otherwise return the whole reasoning as last resort
+    // Extract quoted text — the translation is usually in quotes
+    const quoted = r.match(/"([^"]+)"/);
+    if (quoted?.[1]) { const t = quoted[1].trim(); if (t && t.length < 100) return t; }
+    // Look for patterns like "is X" or "como X" or "tradução: X"
+    const ptMatch = r.match(/["“]([^"”“]+)["”]/);
+    if (ptMatch?.[1]) { const t = ptMatch[1].trim(); if (t && t.length < 60) return t; }
+    // Last line that looks like a single word/phrase (no spaces, or short)
+    const lines = r.split("\n").map((l) => l.trim()).filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].replace(/^[""']|[""']$/g, "").trim();
+      if (line && line.length < 60 && !line.includes(" ") && !line.toLowerCase().includes("translate") && !line.toLowerCase().includes("called") && !line.toLowerCase().includes("meaning")) {
+        return line;
+      }
+    }
     return r.slice(0, 2000);
   }
   const f = data?.choices?.[0]?.text;
