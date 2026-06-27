@@ -1,10 +1,10 @@
-# Privacy Policy - DeepSeek Chrome Translator
+# Privacy Policy - Ayvu Translator
 
 Effective date: 2026-06-25
 
 ## Overview
 
-DeepSeek Chrome Translator translates user-selected text through third-party language APIs,
+Ayvu Translator translates user-selected text through third-party language APIs,
 helps users save local flashcards, and opens pronunciation resources when requested.
 This extension is designed to minimize data processing and keep user settings local.
 

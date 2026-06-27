@@ -802,7 +802,7 @@ function exportVisibleCardsCsv() {
   const anchor = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
   anchor.href = url;
-  anchor.download = `deepseek-flashcards-${stamp}.csv`;
+  anchor.download = `ayvu-flashcards-${stamp}.csv`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();

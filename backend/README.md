@@ -1,4 +1,4 @@
-# DeepSeek Translator API
+# Ayvu Translator API
 
 Cloudflare Workers backend for the Chrome extension paid model:
 

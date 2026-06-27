@@ -5,7 +5,7 @@ const MIGRATION_FLAG_KEY = "deepseekTranslatorFlashcardsMigrated";
 const MAIN_WINDOW_ID_KEY = "deepseekTranslatorMainWindowId";
 const SELECTION_HISTORY_KEY = "deepseekTranslatorSelectionHistory";
 
-const DB_NAME = "deepseek-translator-db";
+const DB_NAME = "ayvu-translator-db";
 const DB_VERSION = 1;
 const FLASHCARDS_STORE = "flashcards";
 const MAX_TRANSLATION_CHARS = 12000;
