@@ -144,7 +144,7 @@ async function deepSeekChat(env: Env, body: Record<string, unknown>): Promise<Re
     const response = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: { authorization: `Bearer ${env.DEEPSEEK_API_KEY}`, "content-type": "application/json" },
-      body: JSON.stringify({ ...body, reasoning: { enabled: false } }), signal: controller.signal
+      body: JSON.stringify(body), signal: controller.signal
     });
     const data = (await response.json().catch(() => null)) as Record<string, any> | null;
     if (!response.ok) throw new HttpError(response.status, "deepseek_error", data?.error?.message || "AI service failed.");

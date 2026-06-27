@@ -712,9 +712,8 @@ async function updateQuickLanguages() {
 }
 
 async function translate() {
-  const settings = (await storageGet(SETTINGS_KEY)) || {};
-  const sourceLanguage = (settings.sourceLanguage || "auto").trim();
-  const targetLanguage = (settings.targetLanguage || "pt-BR").trim();
+  const sourceLanguage = (quickSourceLanguageSelect.value || "auto").trim();
+  const targetLanguage = (quickTargetLanguageSelect.value || "pt-BR").trim();
   const text = inputText.value.trim();
 
   if (!(await hasBackendSession())) {
@@ -726,7 +725,6 @@ async function translate() {
       ),
       true
     );
-    await refreshOnboarding();
     return;
   }
 
