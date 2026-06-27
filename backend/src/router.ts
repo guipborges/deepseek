@@ -88,8 +88,8 @@ async function handleWordDetails(request: Request, env: Env): Promise<Response> 
   const data = await deepSeekChat(env, {
     model: deepSeekModel(env), temperature: 0, max_tokens: 1000,
     messages: [
-      { role: "system", content: "Return only minified valid JSON (no markdown). Fields: pronunciation, synonym, antonym, synonymTranslation, antonymTranslation, example1, example2, pastExample, futureExample, example1Translation, example2Translation, pastExampleTranslation, futureExampleTranslation. Short values." },
-      { role: "user", content: `Word: ${word}\nSource: ${sourceLanguage}\nTarget: ${targetLanguage}\nReturn concise JSON.` }
+      { role: "system", content: "You are a language learning assistant. Return ONLY valid minified JSON with no markdown, no code fences, no explanation. Required fields: pronunciation (string), synonym (string), antonym (string), synonymTranslation (string), antonymTranslation (string), example1 (string), example2 (string), pastExample (string), futureExample (string), example1Translation (string), example2Translation (string), pastExampleTranslation (string), futureExampleTranslation (string). Use short values." },
+      { role: "user", content: `Word: ${word}\nSource: ${sourceLanguage}\nTarget: ${targetLanguage}\nReturn only valid JSON.` }
     ]
   });
 

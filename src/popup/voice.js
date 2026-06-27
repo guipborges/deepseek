@@ -1,10 +1,6 @@
 // Voice functions for popup — loaded via <script> before popup.js
 // Depends on: shared/utils.js, shared/language.js
-
-/* Voice selector state */
-let voicePickerBtn = null;
-let voiceSelect = null;
-let voiceControlPanel = null;
+// Variables voicePickerBtn, voiceSelect, voiceControlPanel are declared in popup.js
 
 function initVoiceElements() {
   voicePickerBtn = document.getElementById("voicePickerBtn");
