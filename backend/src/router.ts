@@ -62,10 +62,10 @@ async function handleTranslate(request: Request, env: Env): Promise<Response> {
     model: deepSeekModel(env), temperature: 0,
     max_tokens: Math.min(4000, Math.max(128, text.length * 2)),
     messages: [
-      { role: "system", content: "You are a translation engine. Identify the source language automatically if not specified. Return ONLY the translated text, no explanations, no notes." },
+      { role: "system", content: "You are a precise translation engine. Identify the source language automatically. Return ONLY the translated text — no explanations, no notes, no quotation marks, no prefixes like 'Translation:'. Just the translated text." },
       { role: "user", content: sourceLanguage === "auto"
-        ? `Translate to ${targetLanguage}. Return only the translation.\n\n${text}`
-        : `Translate from ${sourceLanguage} to ${targetLanguage}. Return only the translation.\n\n${text}` }
+        ? `Translate this to ${targetLanguage}:\n\n${text}`
+        : `Translate this from ${sourceLanguage} to ${targetLanguage}:\n\n${text}` }
     ]
   });
 
@@ -157,7 +157,9 @@ function usageFromDeepSeek(data: Record<string, any>): { inputTokens: number; ou
 }
 
 function assistantContentText(data: Record<string, any>): string {
-  const c = data?.choices?.[0]?.message?.content;
+  const msg = data?.choices?.[0]?.message || {};
+  // Try content first
+  const c = msg.content;
   if (typeof c === "string") { const t = c.trim(); if (t) return t; }
   if (Array.isArray(c)) {
     for (const part of c) {
@@ -165,11 +167,19 @@ function assistantContentText(data: Record<string, any>): string {
       if (part?.text) { const t = part.text.trim(); if (t) return t; }
     }
   }
+  // Fallback: extract translation from reasoning_content (deepseek-v4-flash puts response there)
+  const r = msg.reasoning_content;
+  if (typeof r === "string" && r.length > 10) {
+    // Try to find the translated word/phrase at the end of reasoning
+    const lines = r.split("\n").map((l: string) => l.trim()).filter(Boolean);
+    const lastLine = lines[lines.length - 1] || "";
+    // If last line looks like a translation (short, no English words), use it
+    if (lastLine.length < 100 && !lastLine.toLowerCase().includes("translate")) return lastLine;
+    // Otherwise return the whole reasoning as last resort
+    return r.slice(0, 2000);
+  }
   const f = data?.choices?.[0]?.text;
   if (typeof f === "string") { const t = f.trim(); if (t) return t; }
-  // Last resort: return the entire raw content field
-  const raw = JSON.stringify(data?.choices?.[0]?.message);
-  if (raw && raw !== "{}") return raw.slice(0, 2000);
   return "";
 }
 
