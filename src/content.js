@@ -88,9 +88,16 @@ async function translateSelectionToBubble(anchorX, anchorY, sourceText) {
     const saved = ((await storageGet(BUBBLE_SOURCE_LANGUAGE_KEY)) || "").trim();
     const settings = (await storageGet(SETTINGS_KEY)) || {};
     const sl = (saved || settings.sourceLanguage || "auto").trim();
-    const res = await sendRuntimeMessage({ type: "TRANSLATE_TEXT", text: sourceText, sourceLanguage: sl });
+    const tl = (settings.targetLanguage || getDefaultTargetLanguage()).trim();
+    const res = await sendRuntimeMessage({ type: "TRANSLATE_TEXT", text: sourceText, sourceLanguage: sl, targetLanguage: tl });
     if (!res?.ok) throw new Error(res?.error || "Falha na traducao.");
-    showTranslatedBubble(anchorX, anchorY, sourceText, res.translatedText, sl);
+    // If the API returned the same text (not translated), show an error instead
+    const translatedText = res.translatedText;
+    if (translatedText && translatedText.toLowerCase().trim() === sourceText.toLowerCase().trim()) {
+      showBubbleAt(anchorX, anchorY, "Falha ao traduzir. Tente novamente.", true);
+      return;
+    }
+    showTranslatedBubble(anchorX, anchorY, sourceText, translatedText, sl);
   } catch (e) { showBubbleAt(anchorX, anchorY, "Erro: " + e.message, true); }
 }
 
@@ -207,7 +214,11 @@ function showTranslatedBubble(x, y, sourceText, translatedText, initialSourceLan
       selTgtLang = tl;
       const r = await sendRuntimeMessage({ type: "TRANSLATE_TEXT", text: sourceText, sourceLanguage: selSrcLang, targetLanguage: tl });
       if (!r?.ok || !r.translatedText) throw new Error(r?.error || "Falha na traducao.");
-      textEl.textContent = normalizeTranslatedText(r.translatedText);
+      const newText = normalizeTranslatedText(r.translatedText);
+      if (newText.toLowerCase().trim() === sourceText.toLowerCase().trim()) {
+        throw new Error("Traducao retornou o mesmo texto.");
+      }
+      textEl.textContent = newText;
       updateStatus();
     } catch (_) { statusEl.textContent = "Erro ao traduzir."; }
   });
