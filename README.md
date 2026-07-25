@@ -28,7 +28,7 @@ Chrome extension to translate selected text with DeepSeek API, with flashcards, 
 - DeepSeek API Key
 - Source language (for example: `auto`, `en`, `pt-BR`)
 - Target language (for example: `pt-BR`, `en`, `es`)
-- Model (default: `deepseek-chat`)
+- Model (default: `deepseek-v4-flash`)
 - Popup width and height (px)
 - App language (PT-BR / EN-US / DE-DE)
 4. Click **Save**.

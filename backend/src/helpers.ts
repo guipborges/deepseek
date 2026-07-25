@@ -14,7 +14,7 @@ export function envNumber(env: Env, key: keyof Env, fallback: number): number {
 }
 
 export function deepSeekModel(env: Env): string {
-  return env.DEEPSEEK_MODEL || "deepseek-chat";
+  return env.DEEPSEEK_MODEL || "deepseek-v4-flash";
 }
 
 export function normalizeEmail(email: string): string {
