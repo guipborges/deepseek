@@ -3,7 +3,7 @@
   "name": "Ayvu Translator",
   "description": "Translate selected text, save flashcards, and practice pronunciation.",
   "version": "1.0.9",
-  "permissions": ["storage", "windows"],
+  "permissions": ["storage", "windows", "sidePanel"],
   "host_permissions": [
     "https://api.dictionaryapi.dev/*",
     "https://ayvu-api.ayvu-app.workers.dev/*",
@@ -28,6 +28,9 @@
   },
   "background": {
     "service_worker": "src/background.js"
+  },
+  "side_panel": {
+    "default_path": "src/popup.html?view=side-panel"
   },
   "options_page": "src/options.html",
   "content_scripts": [

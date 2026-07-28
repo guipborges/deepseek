@@ -93,6 +93,20 @@ h1 {
   border: 1px solid var(--line);
 }
 
+#pinPanelBtn.icon-btn {
+  min-width: 30px;
+  padding: 6px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--primary) 18%, var(--panel));
+  color: var(--primary);
+  border: 1px solid var(--line);
+}
+
+#pinPanelBtn.icon-btn[aria-pressed="true"] {
+  background: var(--primary);
+  color: #fff;
+}
+
 #voicePickerBtn.icon-btn:hover {
   background: color-mix(in srgb, var(--primary) 28%, var(--panel));
 }

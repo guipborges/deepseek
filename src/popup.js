@@ -4,6 +4,7 @@ const statusEl = document.getElementById("status");
 const quickSourceLanguageSelect = document.getElementById("quickSourceLanguage");
 const quickTargetLanguageSelect = document.getElementById("quickTargetLanguage");
 const resetSizeBtn = document.getElementById("resetSizeBtn");
+const pinPanelBtn = document.getElementById("pinPanelBtn");
 const voicePickerBtn = document.getElementById("voicePickerBtn");
 const voiceSelect = document.getElementById("voiceSelect");
 const voiceSettingsBtn = document.getElementById("voiceSettingsBtn");
@@ -74,6 +75,7 @@ let autoDetailsTimer = null;
 let isGeneratingDetails = false;
 let detailsSpeechLanguage = "en-US";
 let selectionHistoryCache = [];
+let sidePanelWindowId = null;
 const TRANSLATION_LANGUAGES =
   typeof LANGUAGE_CATALOG !== "undefined" && Array.isArray(LANGUAGE_CATALOG) && LANGUAGE_CATALOG.length
     ? LANGUAGE_CATALOG
@@ -591,7 +593,64 @@ async function resetToDefaultSize() {
 
 function isPinnedMode() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("pinned") === "1";
+  return params.get("pinned") === "1" || params.get("view") === "side-panel";
+}
+
+function isSidePanelMode() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("view") === "side-panel";
+}
+
+function updatePinButton() {
+  const pinned = isSidePanelMode();
+  const title = pinned
+    ? tl("Desafixar do navegador", "Detach from browser", "Vom Browser lösen")
+    : tl("Fixar no navegador", "Pin to browser", "Im Browser anheften");
+
+  pinPanelBtn.setAttribute("aria-pressed", pinned ? "true" : "false");
+  pinPanelBtn.setAttribute("aria-label", title);
+  pinPanelBtn.title = title;
+  pinPanelBtn.textContent = pinned ? "↗" : "📌";
+}
+
+async function togglePinnedPanel() {
+  pinPanelBtn.disabled = true;
+
+  try {
+    if (!isSidePanelMode()) {
+      if (!sidePanelWindowId || !chrome.sidePanel?.open) {
+        throw new Error("O painel lateral não está disponível nesta janela.");
+      }
+
+      // This must be the first asynchronous Chrome call made from the click.
+      // Chrome rejects sidePanel.open after the user gesture crosses another async boundary.
+      await chrome.sidePanel.open({ windowId: sidePanelWindowId });
+    }
+
+    const currentWindow = await chrome.windows.getCurrent();
+    const response = await sendRuntimeMessage({
+      type: isSidePanelMode() ? "UNPIN_FROM_SIDE_PANEL" : "PIN_TO_SIDE_PANEL",
+      windowId: currentWindow?.id
+    });
+
+    if (!response?.ok) {
+      throw new Error(response?.error || "Não foi possível alterar o modo do tradutor.");
+    }
+  } finally {
+    pinPanelBtn.disabled = false;
+  }
+}
+
+async function prepareSidePanelTargetWindow() {
+  const currentWindow = await chrome.windows.getCurrent();
+  if (currentWindow?.type === "normal") {
+    sidePanelWindowId = currentWindow.id;
+    return;
+  }
+
+  const normalWindows = await chrome.windows.getAll({ windowTypes: ["normal"] });
+  const focusedWindow = normalWindows.find((windowInfo) => windowInfo.focused);
+  sidePanelWindowId = focusedWindow?.id || normalWindows[0]?.id || null;
 }
 
 async function openPinnedWindow() {
@@ -999,6 +1058,15 @@ resetSizeBtn.addEventListener("click", () => {
     setStatus(tl("Falha ao restaurar tamanho: ", "Failed to restore size: ", "Fehler beim Wiederherstellen der Groesse: ") + error.message, true);
   });
 });
+pinPanelBtn.addEventListener("click", () => {
+  togglePinnedPanel().catch((error) => {
+    setStatus(
+      tl("Falha ao alterar painel: ", "Failed to change panel mode: ", "Panelmodus konnte nicht geändert werden: ") +
+        error.message,
+      true
+    );
+  });
+});
 voicePickerBtn?.addEventListener("click", () => {
   toggleVoicePanel();
 });
@@ -1049,6 +1117,7 @@ detailFutureAudioBtn?.addEventListener("click", () => {
 listenPendingTextUpdates();
 listenHistoryUpdates();
 listenThemeChanges();
+updatePinButton();
 setActiveTab("translator");
 resetWordDetails();
 
@@ -1063,8 +1132,11 @@ async function initPopup() {
     populateVoiceSelect(),
     refreshOnboarding(),
     loadPendingTextAndTranslate(),
-    loadHistorySelect()
+    loadHistorySelect(),
+    prepareSidePanelTargetWindow()
   ]);
+
+  updatePinButton();
 
   if (authRedirect?.ok) {
     setStatus(t("onboardingSaved"));

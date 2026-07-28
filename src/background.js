@@ -4,15 +4,21 @@ const FLASHCARDS_KEY = "deepseekTranslatorFlashcards";
 const MIGRATION_FLAG_KEY = "deepseekTranslatorFlashcardsMigrated";
 const MAIN_WINDOW_ID_KEY = "deepseekTranslatorMainWindowId";
 const SELECTION_HISTORY_KEY = "deepseekTranslatorSelectionHistory";
+const SIDE_PANEL_PATH = "src/popup.html?view=side-panel";
 
 const DB_NAME = "ayvu-translator-db";
 const DB_VERSION = 1;
 const FLASHCARDS_STORE = "flashcards";
 const MAX_TRANSLATION_CHARS = 12000;
+let interfaceModeCache = "window";
 
 importScripts("shared/utils.js", "shared/language.js", "auth.js");
 
 const TRANSLATION_LANGUAGES = LANGUAGE_CATALOG.map((language) => language.value);
+
+chrome.storage.local.get([SETTINGS_KEY], (result) => {
+  interfaceModeCache = result[SETTINGS_KEY]?.interfaceMode === "side-panel" ? "side-panel" : "window";
+});
 
 chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "AYVU_SUPABASE_AUTH") {
@@ -121,6 +127,70 @@ async function openOrFocusMainWindow() {
   return createMainWindow();
 }
 
+async function getNormalWindowId(preferredWindowId) {
+  if (preferredWindowId) {
+    try {
+      const preferred = await chrome.windows.get(preferredWindowId);
+      if (preferred?.type === "normal") {
+        return preferred.id;
+      }
+    } catch (_error) {
+      // Fall through to the most recently focused browser window.
+    }
+  }
+
+  const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
+  const focused = windows.find((windowInfo) => windowInfo.focused);
+  return focused?.id || windows[0]?.id;
+}
+
+async function setInterfaceMode(interfaceMode) {
+  interfaceModeCache = interfaceMode;
+  const settings = (await storageGet(SETTINGS_KEY)) || {};
+  await storageSet(SETTINGS_KEY, { ...settings, interfaceMode });
+}
+
+async function openSidePanel(preferredWindowId) {
+  if (!chrome.sidePanel?.open) {
+    throw new Error("O painel lateral requer uma versão mais recente do Chrome.");
+  }
+
+  const windowId = await getNormalWindowId(preferredWindowId);
+  if (!windowId) {
+    throw new Error("Nenhuma janela do navegador foi encontrada.");
+  }
+
+  await chrome.sidePanel.open({ windowId });
+  return windowId;
+}
+
+async function closePopupWindow(windowId) {
+  if (!windowId) {
+    return;
+  }
+
+  try {
+    const windowInfo = await chrome.windows.get(windowId);
+    if (windowInfo?.type === "popup") {
+      await chrome.windows.remove(windowId);
+    }
+  } catch (_error) {
+    // The source popup may already have been closed by the user.
+  }
+}
+
+async function openPreferredTranslator(preferredWindowId) {
+  if (interfaceModeCache === "side-panel") {
+    try {
+      return await openSidePanel(preferredWindowId);
+    } catch (_error) {
+      // Some automatic triggers cannot open a side panel. Keep translation available.
+    }
+  }
+
+  return openOrFocusMainWindow();
+}
+
 async function focusExistingMainWindowIfOpen() {
   const savedWindowId = await storageGet(MAIN_WINDOW_ID_KEY);
 
@@ -167,8 +237,15 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
   }
 });
 
-chrome.action.onClicked.addListener(() => {
-  openOrFocusMainWindow().catch(() => {
+chrome.action.onClicked.addListener((tab) => {
+  if (interfaceModeCache === "side-panel" && tab?.windowId && chrome.sidePanel?.open) {
+    chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {
+      openOrFocusMainWindow().catch(() => {});
+    });
+    return;
+  }
+
+  openPreferredTranslator(tab?.windowId).catch(() => {
     // Ignore click failures silently.
   });
 });
@@ -500,6 +577,33 @@ async function openForvoWindow(text, languageHint) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "PIN_TO_SIDE_PANEL") {
+    setInterfaceMode("side-panel")
+      .then(() => closePopupWindow(message.windowId))
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message || "Falha ao fixar painel." }));
+
+    return true;
+  }
+
+  if (message?.type === "UNPIN_FROM_SIDE_PANEL") {
+    setInterfaceMode("window")
+      .then(() => openOrFocusMainWindow())
+      .then(async () => {
+        const windowId = await getNormalWindowId(message.windowId);
+        if (chrome.sidePanel?.close && windowId) {
+          await chrome.sidePanel.close({ windowId });
+        } else if (chrome.sidePanel?.setOptions) {
+          await chrome.sidePanel.setOptions({ path: SIDE_PANEL_PATH, enabled: false });
+          await chrome.sidePanel.setOptions({ path: SIDE_PANEL_PATH, enabled: true });
+        }
+      })
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message || "Falha ao desafixar painel." }));
+
+    return true;
+  }
+
   if (message?.type === "OPEN_MAIN_WINDOW_WITH_TEXT") {
     const text = (message.text || "").trim();
 
@@ -509,7 +613,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 
     Promise.all([setPendingText(text), addToSelectionHistory(text)])
-      .then(() => openOrFocusMainWindow())
+      .then(() => openPreferredTranslator(message.windowId))
       .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: error.message || "Falha ao abrir popup principal." }));
 
@@ -530,7 +634,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         const popupOpenTrigger = resolvePopupOpenTrigger(settings);
         let openedMainWindow = false;
         if (popupOpenTrigger === "double-click") {
-          await openOrFocusMainWindow();
+          await openPreferredTranslator();
           openedMainWindow = true;
         } else {
           openedMainWindow = await focusExistingMainWindowIfOpen();
@@ -544,7 +648,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === "OPEN_MAIN_WINDOW") {
-    openOrFocusMainWindow()
+    openPreferredTranslator(message.windowId)
       .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: error.message || "Falha ao abrir janela principal." }));
 
