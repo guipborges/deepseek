@@ -28,3 +28,14 @@ Thumbs.db
 # Wrangler
 .wrangler/
 wrangler.toml.local
+
+# Agent skills (installed by npx skills add)
+.agents/
+skills-lock.json
+AGENTS.md
+docs/agents/
+docs/domain.md
+docs/research/
+
+# Agent skills (installed by npx skills add)
+.agents/

@@ -4,6 +4,26 @@ import { readJson } from "./shared";
 import { getMonthlyUsage, getDailyUsage, assertCanUse, recordUsage, publicUser } from "./shared";
 import { deepSeekModel, normalizeEmail, assertEmail, nowIso, envNumber } from "./shared";
 
+// In-memory translation cache with TTL (1 hour, 1000 entries max)
+const translationCache = new Map<string, { text: string; ttl: number }>();
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 1000;
+
+function cacheGet(key: string): string | null {
+  const entry = translationCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.ttl) { translationCache.delete(key); return null; }
+  return entry.text;
+}
+
+function cacheSet(key: string, text: string): void {
+  if (translationCache.size >= CACHE_MAX_ENTRIES) {
+    const firstKey = translationCache.keys().next().value;
+    if (firstKey) translationCache.delete(firstKey);
+  }
+  translationCache.set(key, { text, ttl: Date.now() + CACHE_TTL_MS });
+}
+
 export async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, "") || "/";
@@ -58,21 +78,67 @@ async function handleTranslate(request: Request, env: Env): Promise<Response> {
   if (!text) throw new HttpError(400, "missing_text", "Enter text to translate.");
   assertCanUse(env, user, monthly, daily, "translate", text);
 
+  // Simple in-memory cache to avoid redundant API calls for repeated text.
+  const cacheKey = `${sourceLanguage}:${targetLanguage}:${text}`;
+  const cachedText = cacheGet(cacheKey);
+  if (cachedText) {
+    // Re-use previous usage stats from the same session
+    const usage = usageFromDeepSeek({ usage: { prompt_tokens: 0, completion_tokens: 0 } });
+    const nextUsage = await recordUsage(env, user.id, "translate", 0, 0, monthly, daily);
+    return json({ ok: true, translatedText: cachedText, usage, account: publicUser(user, env, nextUsage.monthly, nextUsage.daily) }, {}, env);
+  }
+
+  // Thinking mode desativado explicitamente para o modelo se comportar como o antigo deepseek-chat.
+  // Sem isso, o v4-flash gera reasoning_content antes da resposta e o texto vaza pro content.
+
   const data = await deepSeekChat(env, {
     model: "deepseek-v4-flash",
+    thinking: { type: "disabled" },
     max_tokens: Math.min(4000, Math.max(128, text.length * 2)),
     messages: [
-      { role: "user", content: sourceLanguage === "auto"
-        ? `Translate to ${targetLanguage}: ${text}`
-        : `Translate from ${sourceLanguage} to ${targetLanguage}: ${text}` }
+      {
+        role: "system",
+        content: `Traduza o texto do usuário para o idioma pedido.
+
+Regras:
+- Traduza SEMPRE. Se o texto estiver incompleto, traduza o que tem.
+- NUNCA repita o texto original.
+- Responda APENAS no formato abaixo, sem nada antes ou depois:
+
+TRADUÇÃO: (a tradução aqui)
+
+Exemplo:
+Usuário: Hello world
+TRADUÇÃO: Olá mundo`
+      },
+      {
+        role: "user",
+        content: `${targetLanguage}: ${text}\n\nTRADUÇÃO: `
+      }
     ]
   });
 
-  // The model always puts the final answer at the end of reasoning_content.
-  // We extract it from there instead of fighting the thinking mode.
-  const translatedText = extractFromDeepSeek(data, text);
+  let translatedText = extractTranslationResponse(data, text);
+
+  // Retry sem system prompt (às vezes o system vaza)
+  if (!translatedText) {
+    try {
+      const retryData = await deepSeekChat(env, {
+        model: "deepseek-v4-flash",
+        thinking: { type: "disabled" },
+        max_tokens: Math.min(2000, Math.max(64, text.length * 2)),
+        messages: [
+          { role: "user", content: `${targetLanguage}: ${text}\n\nTRADUÇÃO: ` }
+        ]
+      });
+      translatedText = extractTranslationResponse(retryData, text);
+    } catch (_) { /* keep first failure */ }
+  }
 
   if (!translatedText) throw new HttpError(502, "empty_ai_response", "AI response did not include translated text.");
+
+  // Cache successful translations
+  cacheSet(cacheKey, translatedText);
 
   const usage = usageFromDeepSeek(data);
   const nextUsage = await recordUsage(env, user.id, "translate", usage.inputTokens, usage.outputTokens, monthly, daily);
@@ -288,6 +354,59 @@ function extractLastTranslationWord(text: string, sourceText: string): string | 
   }
 
   return null;
+}
+
+/**
+ * Extract translation from a DeepSeek response.
+ * Strategies in order:
+ * 1. TRADUÇÃO: label (most reliable — the prompt template)
+ * 2. JSON {"translation": "..."} from content or reasoning_content
+ * 3. First line of content (model may put answer on line 1 before reasoning)
+ * 4. Last quoted text
+ * 5. Short raw text (<200 chars, different from source)
+ */
+function extractTranslationResponse(data: Record<string, any>, sourceText: string): string {
+  const msg = data?.choices?.[0]?.message || {};
+  const src = (sourceText || "").trim().toLowerCase();
+
+  const fields = [
+    msg.content,
+    msg.reasoning_content
+  ].filter((t: unknown): t is string => typeof t === "string" && t.length > 1);
+
+  for (const text of fields) {
+    // (1) TRADUÇÃO: label — most reliable
+    const match = text.match(/TRADUÇÃO:\s*(.+)/i);
+    if (match?.[1]) {
+      const t = match[1].trim().replace(/^["""']|["""']$/g, "").trim();
+      if (t && t.toLowerCase() !== src && t.length < 500) return t;
+    }
+
+    // (2) JSON
+    const json = tryParseJsonTranslation(text);
+    if (json && json.toLowerCase() !== src) return json;
+
+    // (3) First line (model may put answer before reasoning)
+    const firstLine = text.split("\n")[0].trim();
+    if (firstLine && firstLine.length < 100 && firstLine.toLowerCase() !== src &&
+        !firstLine.toLowerCase().includes("incomplete") &&
+        !firstLine.toLowerCase().includes("ambígu")) {
+      const cleaned = firstLine.replace(/^["""']|["""']$/g, "").trim();
+      if (cleaned) return cleaned;
+    }
+
+    // (4) Last quoted text
+    const quotes = [...text.matchAll(/["""']([^""']{1,200})["""']/g)];
+    for (let i = quotes.length - 1; i >= 0; i--) {
+      const q = quotes[i][1].trim();
+      if (q && q.toLowerCase() !== src && q.length < 150) return q;
+    }
+
+    // (5) Short raw text
+    if (text.length < 200 && text.toLowerCase() !== src) return text;
+  }
+
+  return "";
 }
 
 /** Extract JSON object from text that may contain markdown code fences or surrounding text. */

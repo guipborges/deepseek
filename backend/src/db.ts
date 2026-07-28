@@ -76,7 +76,9 @@ export async function findAuthUserByEmail(env: Env, email: string): Promise<Auth
       return { id: authUser.id, email: normalizeEmail(authUser.email) };
     }
 
-    if ((data.users || []).length < 100) {
+    // Stop early if this page has fewer than 100 users — no more pages exist
+    const userCount = (data.users || []).length;
+    if (userCount < 100) {
       return null;
     }
   }
